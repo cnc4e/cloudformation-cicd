@@ -1,0 +1,242 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  Phase:  PED Ph1
+  AWS Resources:  WHL Lambda,Cloud Watch Events
+
+Parameters:
+  ProjectName:
+    Description: ProjectName
+    Type: String
+    Default: PED1
+
+  SNSEmailAddress:
+    Description: Email Address
+    Type: String
+
+Mappings:
+  Param:
+    IAMPolicyName:
+      LMDIAMPolicyName:             IMP-EC2
+
+    IAMRoleName:
+      LMDIAMRole01Name:             IMR-LMDEC2STARTSTOP
+
+    SNS:
+      SNSTopicName:                 SNS-TISINFRA
+
+    LMD:
+      LMDStopName:                  LMD-STP
+      LMDStartName:                 LMD-STT
+      LMDRegion:                    ap-northeast-1
+      LMDTargetTagName:             EC2-AutoStartStop
+
+    CWE:
+      CWEStopName:                  CWE-STP
+      CWEStartName:                 CWE-STT
+      CWEStopSchedule:              'cron(0 12 ? * 2-6 *)'
+      CWEStartSchedule:             'cron(0 0 ? * 2-6 *)'
+      CWEStopFunctionName:          CWE-STP-Fn
+      CWEStartFunctionName:         CWE-STT-Fn
+
+
+Resources:
+#--------------------------------------------------
+# - Role
+#--------------------------------------------------
+  LMDIAMRole01:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Delete
+    Properties:
+      RoleName: 
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, IAMRoleName, LMDIAMRole01Name ] ] ]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+
+#--------------------------------------------------
+# - Policy
+#--------------------------------------------------
+  LMDIAMPolicy:
+    Type: AWS::IAM::Policy
+    DeletionPolicy: Delete
+    Properties:
+      PolicyName: 
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, IAMPolicyName, LMDIAMPolicyName ] ] ]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ec2:StartInstances
+              - ec2:StopInstances
+              - ec2:Describe*
+            Resource: '*'
+      Roles:
+        - !Ref LMDIAMRole01
+
+#------------------------------------------------------------#
+#SNS
+#------------------------------------------------------------#
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName:
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, SNS, SNSTopicName ] ] ]
+      TopicName: 
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, SNS, SNSTopicName ] ] ]
+      Subscription:
+        - Endpoint: 
+            !Ref SNSEmailAddress
+          Protocol: email
+
+
+#------------------------------------------------------------#
+#Lambda Function
+#------------------------------------------------------------#
+
+  LMDStop:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      FunctionName:
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, LMD, LMDStopName ] ] ]
+      Runtime: python3.7
+      Timeout: 240
+      Description:
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, LMD, LMDStopName ] ] ]
+      Code:
+        ZipFile: |
+          import boto3
+          import os;
+          def lambda_handler(event, context):
+            region = os.environ['REAGION']
+            target_ec2_name = os.environ['TARGET_EC2_NAME']
+            resource = boto3.resource('ec2', region)
+            instances = resource.instances.filter(
+            Filters=[{'Name': 'tag:AutoStartStop', 'Values': [ target_ec2_name ]}]
+            )
+            response = instances.stop()
+      Role: 
+        !GetAtt LMDIAMRole01.Arn
+      Environment:
+        Variables:
+          REAGION: 
+            !FindInMap [ Param, LMD, LMDRegion ] 
+          TARGET_EC2_NAME:
+            !Join [ '-', [ !Ref ProjectName, !FindInMap  [Param, LMD, LMDTargetTagName ] ] ]
+
+  LMDStart:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      FunctionName: 
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, LMD, LMDStartName ] ] ]
+      Runtime: python3.7
+      Timeout: 240
+      Description: 
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, LMD, LMDStartName ] ] ]
+      Code:
+        ZipFile: |
+          import boto3
+          import os;
+          def lambda_handler(event, context):
+            region = os.environ['REAGION']
+            target_ec2_name = os.environ['TARGET_EC2_NAME']
+            resource = boto3.resource('ec2', region)
+            instances = resource.instances.filter(
+            Filters=[{'Name': 'tag:AutoStartStop', 'Values': [ target_ec2_name ]}]
+            )
+            response = instances.start()      
+      Role: 
+        !GetAtt LMDIAMRole01.Arn
+      Environment:
+        Variables:
+          REAGION: 
+            !FindInMap [ Param, LMD, LMDRegion ] 
+          TARGET_EC2_NAME:
+            !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, LMD, LMDTargetTagName ] ] ]
+
+#------------------------------------------------------------#
+#Lambda EventInvokeConfig
+#------------------------------------------------------------#
+
+  LMDEICSTOP: 
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties: 
+      FunctionName: !Ref LMDStop
+      Qualifier: '$LATEST'
+      DestinationConfig: 
+        OnFailure: 
+          Destination: 
+            !Ref SNSTopic
+
+  LMDEICSTART: 
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties: 
+      FunctionName: !Ref LMDStart
+      Qualifier: '$LATEST'
+      DestinationConfig: 
+        OnFailure: 
+          Destination: 
+            !Ref SNSTopic
+
+#------------------------------------------------------------#
+#Lambda Permission
+#------------------------------------------------------------#
+
+  LMDPMSSTOP:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LMDStop
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt 'CWESTOP.Arn'
+
+  LMDPMSSTART:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LMDStart
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt 'CWESTART.Arn'
+
+#------------------------------------------------------------#
+#Cloud Watch Event Rule
+#------------------------------------------------------------#
+
+  CWESTOP:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: ScheduledRule
+      ScheduleExpression: 
+        !FindInMap [ Param, CWE, CWEStopSchedule ] 
+      State: ENABLED
+      Name: 
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, CWE, CWEStopName ] ] ]
+      Targets:
+      - Arn: !GetAtt 'LMDStop.Arn'
+        Id: 
+          !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, CWE, CWEStopFunctionName ] ] ]
+
+  CWESTART:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: ScheduledRule
+      ScheduleExpression: 
+        !FindInMap [ Param, CWE, CWEStartSchedule ]
+      State: ENABLED
+      Name: 
+        !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, CWE, CWEStartName ] ] ]
+      Targets:
+      - Arn: !GetAtt 'LMDStart.Arn'
+        Id: 
+          !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, CWE, CWEStartFunctionName ] ] ]
+

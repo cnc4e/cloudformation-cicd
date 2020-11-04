@@ -1,0 +1,1129 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  Resources: EC2SGR, IAMRole_for_EC2, EC2, CWA_EC2AutoRecovery
+
+Mappings:
+#--------------------------------------------------
+# SGR
+#--------------------------------------------------
+  SGR:
+    GroupName:         ## = GroupDescription & TagValueName
+        NOTARY:        PED1-SGR-Notary_CENM
+        OBSERVER:      PED1-SGR-Observer
+        ANODE:         PED1-SGR-ANode
+        BNODE:         PED1-SGR-BNode
+        CNODE:         PED1-SGR-CNode
+        BASTION:       PED1-SGR-Bastion
+    
+
+    VPC:               ## IMPORT_Value
+      VPCID:           PED1-VPC-ID
+
+    AcceptCidr:
+      FromPRISUB1:     192.168.1.0/24
+      FromPUBSUB1:     192.168.1.0/24
+      FromPUBSUB2:     192.168.1.0/24
+      FromBastion:     192.168.0.0/24
+      FromTISGIP:      192.168.0.0/24
+      FromAKSGIP:      192.168.0.0/24
+
+
+#--------------------------------------------------
+# IAM 
+#--------------------------------------------------
+  IAM:
+    RoleName:
+      NOTBASTION:      PED1-IMR-SSMOpe
+      ONLYBASTION:     PED1-IMR-ReadOnly_SSMOpe
+    
+    InstanceProfileName:
+      NOTBASTION:      PED1-IMI-SSMOpe
+      ONLYBASTION:     PED1-IMI-ReadOnly_SSMOpe
+
+
+#--------------------------------------------------
+# EBS/EC2
+#--------------------------------------------------
+  # EBS:
+  #   Size:
+  #     NOTBASTION:      100
+  #     ONLYBASTION:     40
+
+    TagValueName:
+        NOTARY:        PED1-EBS-Notary_CENM
+        OBSERVER:      PED1-EBS-Observer
+        ANODE:         PED1-EBS-ANode
+        BNODE:         PED1-EBS-BNode
+        CNODE:         PED1-EBS-CNode
+        BASTION:       PED1-EBS-Bastion
+
+
+  EC2:
+    AvailabilityZone:
+      ALLSERBER:      ap-northeast-1a
+
+    ImageId:           #RHEL-7.9_HVM_GA-20200917-x86_64-0-Hourly2-GP2
+      NOTBASTION:      ami-0155fdd0956a0c7a0
+      ONLYBASTION:     ami-0155fdd0956a0c7a0
+      # NOTBASTION:      ami-0b355f24363d9f357
+      # ONLYBASTION:     ami-0b355f24363d9f357
+
+    InstanceType:
+      NOTBASTION:      c5.xlarge
+      ONLYBASTION:     t3.small
+
+    PrivateIP:
+      NOTARY:          192.168.1.6
+      OBSERVER:        192.168.1.8
+      ANODE:           192.168.1.10
+      BNODE:           192.168.1.20
+      CNODE:           192.168.1.30
+      BASTION:         192.168.0.90
+
+    TagValueName:
+      NOTARY:          PED1-EC2-Notary_CENM
+      OBSERVER:        PED1-EC2-Observer
+      ANODE:           PED1-EC2-ANode
+      BNODE:           PED1-EC2-BNode
+      CNODE:           PED1-EC2-CNode
+      BASTION:         PED1-EC2-Bastion
+
+    KeyName:
+      # ALLSERBER:       ped1-ak-first-login
+      ALLSERBER:       kuwayama-for-test-key
+
+    DisableApiTermination:
+      ALLSERBER:      false
+
+    Subnet:            ## IMPORT_Value
+      NOTBASTION:      PED1-SUB-PRI-01-ID
+      ONLYBASTION:     PED1-SUB-PUB-01-ID
+
+    VolumeSize:
+      NOTBASTION:      100
+      ONLYBASTION:     40
+
+Parameters:
+  SSMPKGPATH:
+    Type: String
+    Default: https://s3.ap-northeast-1.amazonaws.com/amazon-ssm-ap-northeast-1/latest/linux_amd64/amazon-ssm-agent.rpm
+
+
+Resources:
+
+#--------------------------------------------------
+# - SecurityGroup
+#--------------------------------------------------
+
+  NOTARYSGR:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: 
+        !FindInMap [ SGR, GroupName, NOTARY ]
+      GroupDescription: 
+        !FindInMap [ SGR, GroupName, NOTARY ]
+      VpcId: 
+        Fn::ImportValue:
+          !FindInMap [ SGR, VPC, VPCID ]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [ SGR, GroupName, NOTARY ]
+      SecurityGroupIngress: 
+        - IpProtocol : tcp
+          FromPort   : 10010
+          ToPort     : 10010
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(P2P)
+        - IpProtocol : tcp
+          FromPort   : 10011
+          ToPort     : 10012
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(RPC)
+        - IpProtocol : tcp
+          FromPort   : 10000
+          ToPort     : 10000
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: From Corda Node
+        - IpProtocol : tcp
+          FromPort   : 20000
+          ToPort     : 20000
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: From Corda Node
+        - IpProtocol : tcp
+          FromPort   : 22
+          ToPort     : 22
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromBastion ]
+          Description: From Bastion
+      SecurityGroupEgress: 
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+        - IpProtocol : tcp
+          FromPort   : 443
+          ToPort     : 443
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+
+
+  OBSERVERSGR:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: 
+        !FindInMap [ SGR, GroupName, OBSERVER ]
+      GroupDescription: 
+        !FindInMap [ SGR, GroupName, OBSERVER ]
+      VpcId: 
+        Fn::ImportValue:
+          !FindInMap [ SGR, VPC, VPCID ]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [ SGR, GroupName, OBSERVER ]
+      SecurityGroupIngress: 
+        - IpProtocol : tcp
+          FromPort   : 10010
+          ToPort     : 10010
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(P2P)
+        - IpProtocol : tcp
+          FromPort   : 10011
+          ToPort     : 10012
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(RPC)
+        - IpProtocol : tcp
+          FromPort   : 22
+          ToPort     : 22
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromBastion ]
+          Description: From Bastion
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPUBSUB1 ]
+          Description: From ALB(1a)
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPUBSUB2 ]
+          Description: From ALB(1c)
+      SecurityGroupEgress: 
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+        - IpProtocol : tcp
+          FromPort   : 443
+          ToPort     : 443
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+
+  ANODESGR:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: 
+        !FindInMap [ SGR, GroupName, ANODE ]
+      GroupDescription: 
+        !FindInMap [ SGR, GroupName, ANODE ]
+      VpcId: 
+        Fn::ImportValue:
+          !FindInMap [ SGR, VPC, VPCID ]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [ SGR, GroupName, ANODE ]
+      SecurityGroupIngress: 
+        - IpProtocol : tcp
+          FromPort   : 10010
+          ToPort     : 10010
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(P2P)
+        - IpProtocol : tcp
+          FromPort   : 10011
+          ToPort     : 10012
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(RPC)
+        - IpProtocol : tcp
+          FromPort   : 22
+          ToPort     : 22
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromBastion ]
+          Description: From Bastion
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPUBSUB1 ]
+          Description: From ALB(1a)
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPUBSUB2 ]
+          Description: From ALB(1c)
+      SecurityGroupEgress: 
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+        - IpProtocol : tcp
+          FromPort   : 443
+          ToPort     : 443
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+
+  BNODESGR:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: 
+        !FindInMap [ SGR, GroupName, BNODE ]
+      GroupDescription: 
+        !FindInMap [ SGR, GroupName, BNODE ]
+      VpcId: 
+        Fn::ImportValue:
+          !FindInMap [ SGR, VPC, VPCID ]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [ SGR, GroupName, BNODE ]
+      SecurityGroupIngress: 
+        - IpProtocol : tcp
+          FromPort   : 10010
+          ToPort     : 10010
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(P2P)
+        - IpProtocol : tcp
+          FromPort   : 10011
+          ToPort     : 10012
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(RPC)
+        - IpProtocol : tcp
+          FromPort   : 22
+          ToPort     : 22
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromBastion ]
+          Description: From Bastion
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPUBSUB1 ]
+          Description: From ALB(1a)
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPUBSUB2 ]
+          Description: From ALB(1c)
+      SecurityGroupEgress: 
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+        - IpProtocol : tcp
+          FromPort   : 443
+          ToPort     : 443
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+
+
+  CNODESGR:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: 
+        !FindInMap [ SGR, GroupName, CNODE ]
+      GroupDescription: 
+        !FindInMap [ SGR, GroupName, CNODE ]
+      VpcId: 
+        Fn::ImportValue:
+          !FindInMap [ SGR, VPC, VPCID ]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [ SGR, GroupName, CNODE ]
+      SecurityGroupIngress: 
+        - IpProtocol : tcp
+          FromPort   : 10010
+          ToPort     : 10010
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(P2P)
+        - IpProtocol : tcp
+          FromPort   : 10011
+          ToPort     : 10012
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: Corda Link(RPC)
+        - IpProtocol : tcp
+          FromPort   : 22
+          ToPort     : 22
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromBastion ]
+          Description: From Bastion
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPUBSUB1 ]
+          Description: From ALB(1a)
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPUBSUB2 ]
+          Description: From ALB(1c)
+      SecurityGroupEgress: 
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+        - IpProtocol : tcp
+          FromPort   : 443
+          ToPort     : 443
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+
+  BASTIONSGR:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: 
+        !FindInMap [ SGR, GroupName, BASTION ]
+      GroupDescription: 
+        !FindInMap [ SGR, GroupName, BASTION ]
+      VpcId: 
+        Fn::ImportValue:
+          !FindInMap [ SGR, VPC, VPCID ]
+      Tags:
+        - Key: Name
+          Value: !FindInMap [ SGR, GroupName, BASTION ]
+      SecurityGroupIngress: 
+        - IpProtocol : tcp
+          FromPort   : 22
+          ToPort     : 22
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromTISGIP ]
+          Description: From Bastion
+        - IpProtocol : tcp
+          FromPort   : 22
+          ToPort     : 22
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromAKSGIP ]
+          Description: From Bastion
+      SecurityGroupEgress: 
+        - IpProtocol : tcp
+          FromPort   : 80
+          ToPort     : 80
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+        - IpProtocol : tcp
+          FromPort   : 443
+          ToPort     : 443
+          CidrIp     : 0.0.0.0/0
+          Description: to Internet
+        - IpProtocol : tcp
+          FromPort   : 22
+          ToPort     : 22
+          CidrIp     : !FindInMap [ SGR, AcceptCidr, FromPRISUB1 ]
+          Description: to Private Subnet
+
+#--------------------------------------------------
+# IAM Role
+#--------------------------------------------------
+
+  NOTBASTIONIAMRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Delete
+    Properties:
+      RoleName: 
+        !FindInMap [ IAM, RoleName, NOTBASTION ]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action: sts:AssumeRole
+
+
+  ONLYBASTIONIAMRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Delete
+    Properties:
+      RoleName: 
+        !FindInMap [ IAM, RoleName, ONLYBASTION ]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action: sts:AssumeRole
+
+#--------------------------------------------------
+# IAM InstanceProfile
+#--------------------------------------------------
+
+  NOTBASTIONInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    DependsOn: NOTBASTIONIAMRole
+    Properties: 
+      Roles:
+        - !Ref NOTBASTIONIAMRole
+      InstanceProfileName: 
+        !FindInMap [ IAM, InstanceProfileName, NOTBASTION]
+
+  ONLYBASTIONInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    DependsOn: ONLYBASTIONIAMRole
+    Properties: 
+      Roles:
+        - !Ref ONLYBASTIONIAMRole
+      InstanceProfileName: 
+        !FindInMap [ IAM, InstanceProfileName, ONLYBASTION]
+
+
+
+#------------------------------------------------------------#
+# EBS
+#------------------------------------------------------------#
+
+
+  # NOTARYEBS:
+  #   Type: AWS::EC2::Volume
+  #   Properties: 
+  #     AvailabilityZone: 
+  #       !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+  #     Size: 
+  #       !FindInMap [ EBS, Size, NOTBASTION ]
+  #     Tags:
+  #       - Key: Name
+  #         Value: 
+  #           !FindInMap [ EBS, TagValueName, NOTARY ]
+  #     VolumeType: gp2
+
+  # OBSERVEREBS:
+  #   Type: AWS::EC2::Volume
+  #   Properties: 
+  #     AvailabilityZone: 
+  #       !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+  #     Size: 
+  #       !FindInMap [ EBS, Size, NOTBASTION ]
+  #     Tags:
+  #       - Key: Name
+  #         Value: 
+  #           !FindInMap [ EBS, TagValueName, OBSERVER ]
+  #     VolumeType: gp2
+
+  # ANODEEBS:
+  #   Type: AWS::EC2::Volume
+  #   Properties: 
+  #     AvailabilityZone: 
+  #       !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+  #     Size: 
+  #       !FindInMap [ EBS, Size, NOTBASTION ]
+  #     Tags:
+  #       - Key: Name
+  #         Value: 
+  #           !FindInMap [ EBS, TagValueName, ANODE ]
+  #     VolumeType: gp2
+
+
+  # BNODEEBS:
+  #   Type: AWS::EC2::Volume
+  #   Properties: 
+  #     AvailabilityZone: 
+  #       !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+  #     Size: 
+  #       !FindInMap [ EBS, Size, NOTBASTION ]
+  #     Tags:
+  #       - Key: Name
+  #         Value: 
+  #           !FindInMap [ EBS, TagValueName, BNODE ]
+  #     VolumeType: gp2
+
+
+  # CNODEEBS:
+  #   Type: AWS::EC2::Volume
+  #   Properties: 
+  #     AvailabilityZone: 
+  #       !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+  #     Size: 
+  #       !FindInMap [ EBS, Size, NOTBASTION ]
+  #     Tags:
+  #       - Key: Name
+  #         Value: 
+  #           !FindInMap [ EBS, TagValueName, CNODE ]
+  #     VolumeType: gp2
+
+
+  # BASTIONEBS:
+  #   Type: AWS::EC2::Volume
+  #   Properties: 
+  #     AvailabilityZone: 
+  #       !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+  #     Size: 
+  #       !FindInMap [ EBS, Size, ONLYBASTION ]
+  #     Tags:
+  #       - Key: Name
+  #         Value: 
+  #           !FindInMap [ EBS, TagValueName, BASTION ]
+  #     VolumeType: gp2
+
+
+#---------------------------------------------------------------------
+# LaunchTemplate
+#---------------------------------------------------------------------
+  SSMInstallTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: SSM-Install-Template
+      LaunchTemplateData:
+        UserData:
+          Fn::Base64: !Sub
+            - |
+              #!/bin/bash
+              yum install -y ${SSMPKGPATH}
+            - {
+                FileName: !Ref SSMPKGPATH
+              }
+
+
+#---------------------------------------------------------------------
+# Instance
+#---------------------------------------------------------------------
+  NOTARYEC2:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - NOTBASTIONInstanceProfile
+      - NOTARYSGR
+    Properties:
+      AvailabilityZone: 
+        !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+      ImageId: 
+        !FindInMap [ EC2, ImageId, NOTBASTION ]
+      InstanceType: 
+        !FindInMap [ EC2, InstanceType, NOTBASTION ]
+      PrivateIpAddress: 
+        !FindInMap [ EC2, PrivateIP, NOTARY ]
+      Tags:
+        - Key: Name
+          Value: 
+            !FindInMap [ EC2, TagValueName, NOTARY ]
+      KeyName:
+        !FindInMap [ EC2, KeyName, ALLSERBER ]
+      DisableApiTermination: 
+        !FindInMap [EC2, DisableApiTermination, ALLSERBER ]
+      SubnetId:
+        Fn::ImportValue: 
+          !FindInMap [ EC2, Subnet, NOTBASTION ]
+      SecurityGroupIds: 
+        - !GetAtt NOTARYSGR.GroupId
+      IamInstanceProfile: 
+        !Ref NOTBASTIONInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeType: gp2
+            VolumeSize: !FindInMap [ EC2, VolumeSize, NOTBASTION ] 
+      LaunchTemplate:
+        LaunchTemplateId: !Ref SSMInstallTemplate
+        Version: !GetAtt SSMInstallTemplate.LatestVersionNumber
+
+  OBSERVEREC2:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - NOTBASTIONInstanceProfile
+      - OBSERVERSGR
+    Properties:
+      AvailabilityZone: 
+        !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+      ImageId: 
+        !FindInMap [ EC2, ImageId, NOTBASTION ]
+      InstanceType: 
+        !FindInMap [ EC2, InstanceType, NOTBASTION ]
+      PrivateIpAddress: 
+        !FindInMap [ EC2, PrivateIP, OBSERVER ]
+      Tags:
+        - Key: Name
+          Value: 
+            !FindInMap [ EC2, TagValueName, OBSERVER ]
+      KeyName:
+        !FindInMap [ EC2, KeyName, ALLSERBER ]
+      DisableApiTermination: 
+        !FindInMap [EC2, DisableApiTermination, ALLSERBER ]
+      SubnetId:
+        Fn::ImportValue: 
+          !FindInMap [ EC2, Subnet, NOTBASTION ]
+      SecurityGroupIds: 
+        - !GetAtt OBSERVERSGR.GroupId
+      IamInstanceProfile: 
+        !Ref NOTBASTIONInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeType: gp2
+            VolumeSize: !FindInMap [ EC2, VolumeSize, NOTBASTION ] 
+      LaunchTemplate:
+        LaunchTemplateId: !Ref SSMInstallTemplate
+        Version: !GetAtt SSMInstallTemplate.LatestVersionNumber
+
+  ANODEEC2:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - NOTBASTIONInstanceProfile
+      - ANODESGR
+    Properties:
+      AvailabilityZone: 
+        !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+      ImageId: 
+        !FindInMap [ EC2, ImageId, NOTBASTION ]
+      InstanceType: 
+        !FindInMap [ EC2, InstanceType, NOTBASTION ]
+      PrivateIpAddress: 
+        !FindInMap [ EC2, PrivateIP, ANODE ]
+      Tags:
+        - Key: Name
+          Value: 
+            !FindInMap [ EC2, TagValueName, ANODE ]
+      KeyName:
+        !FindInMap [ EC2, KeyName, ALLSERBER ]
+      DisableApiTermination: 
+        !FindInMap [EC2, DisableApiTermination, ALLSERBER ]
+      SubnetId:
+        Fn::ImportValue: 
+          !FindInMap [ EC2, Subnet, NOTBASTION ]
+      SecurityGroupIds: 
+        - !GetAtt ANODESGR.GroupId
+      IamInstanceProfile: 
+        !Ref NOTBASTIONInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeType: gp2
+            VolumeSize: !FindInMap [ EC2, VolumeSize, NOTBASTION ] 
+      LaunchTemplate:
+        LaunchTemplateId: !Ref SSMInstallTemplate
+        Version: !GetAtt SSMInstallTemplate.LatestVersionNumber
+
+  BNODEEC2:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - NOTBASTIONInstanceProfile
+      - BNODESGR
+    Properties:
+      AvailabilityZone: 
+        !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+      ImageId: 
+        !FindInMap [ EC2, ImageId, NOTBASTION ]
+      InstanceType: 
+        !FindInMap [ EC2, InstanceType, NOTBASTION ]
+      PrivateIpAddress: 
+        !FindInMap [ EC2, PrivateIP, BNODE ]
+      Tags:
+        - Key: Name
+          Value: 
+            !FindInMap [ EC2, TagValueName, BNODE ]
+      KeyName:
+        !FindInMap [ EC2, KeyName, ALLSERBER ]
+      DisableApiTermination: 
+        !FindInMap [EC2, DisableApiTermination, ALLSERBER ]
+      SubnetId:
+        Fn::ImportValue: 
+          !FindInMap [ EC2, Subnet, NOTBASTION ]
+      SecurityGroupIds: 
+        - !GetAtt BNODESGR.GroupId
+      IamInstanceProfile: 
+        !Ref NOTBASTIONInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeType: gp2
+            VolumeSize: !FindInMap [ EC2, VolumeSize, NOTBASTION ] 
+      LaunchTemplate:
+        LaunchTemplateId: !Ref SSMInstallTemplate
+        Version: !GetAtt SSMInstallTemplate.LatestVersionNumber
+
+  CNODEEC2:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - NOTBASTIONInstanceProfile
+      - CNODESGR
+    Properties:
+      AvailabilityZone: 
+        !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+      ImageId: 
+        !FindInMap [ EC2, ImageId, NOTBASTION ]
+      InstanceType: 
+        !FindInMap [ EC2, InstanceType, NOTBASTION ]
+      PrivateIpAddress: 
+        !FindInMap [ EC2, PrivateIP, CNODE ]
+      Tags:
+        - Key: Name
+          Value: 
+            !FindInMap [ EC2, TagValueName, CNODE ]
+      KeyName:
+        !FindInMap [ EC2, KeyName, ALLSERBER ]
+      DisableApiTermination: 
+        !FindInMap [EC2, DisableApiTermination, ALLSERBER ]
+      SubnetId:
+        Fn::ImportValue: 
+          !FindInMap [ EC2, Subnet, NOTBASTION ]
+      SecurityGroupIds: 
+        - !GetAtt CNODESGR.GroupId
+      IamInstanceProfile: 
+        !Ref NOTBASTIONInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeType: gp2
+            VolumeSize: !FindInMap [ EC2, VolumeSize, NOTBASTION ] 
+      LaunchTemplate:
+        LaunchTemplateId: !Ref SSMInstallTemplate
+        Version: !GetAtt SSMInstallTemplate.LatestVersionNumber
+
+
+  BASTIONEC2:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - ONLYBASTIONInstanceProfile
+      - BASTIONSGR
+    Properties:
+      AvailabilityZone: 
+        !FindInMap [ EC2, AvailabilityZone, ALLSERBER ]
+      ImageId: 
+        !FindInMap [ EC2, ImageId, ONLYBASTION ]
+      InstanceType: 
+        !FindInMap [ EC2, InstanceType, ONLYBASTION ]
+      PrivateIpAddress: 
+        !FindInMap [ EC2, PrivateIP, BASTION ]
+      Tags:
+        - Key: Name
+          Value: 
+            !FindInMap [ EC2, TagValueName, BASTION ]
+      KeyName:
+        !FindInMap [ EC2, KeyName, ALLSERBER ]
+      DisableApiTermination: 
+        !FindInMap [EC2, DisableApiTermination, ALLSERBER ]
+      SubnetId:
+        Fn::ImportValue: 
+          !FindInMap [ EC2, Subnet, ONLYBASTION ]
+      SecurityGroupIds: 
+        - !GetAtt BASTIONSGR.GroupId
+      IamInstanceProfile: 
+        !Ref ONLYBASTIONInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeType: gp2
+            VolumeSize: !FindInMap [ EC2, VolumeSize, ONLYBASTION ] 
+      LaunchTemplate:
+        LaunchTemplateId: !Ref SSMInstallTemplate
+        Version: !GetAtt SSMInstallTemplate.LatestVersionNumber
+
+#------------------------------------------------------------#
+# EIP
+#------------------------------------------------------------#
+  BastionEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: BASTIONEC2
+    Properties: 
+      Domain: vpc
+      InstanceId: !Ref BASTIONEC2
+      Tags: 
+        - Key: Name
+          Value: 
+            !FindInMap [ EC2, TagValueName, BASTION ]
+    
+#------------------------------------------------------------#
+# Auto RecoveryAlarm - System_Failed_Check
+#------------------------------------------------------------#
+  NOTARYSystemARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: NOTARYEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, NOTARY ]
+            - '-Autorecovery-System'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:recover"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref NOTARYEC2
+
+  OBSERVERSystemARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: OBSERVEREC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, OBSERVER ]
+            - '-Autorecovery-System'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:recover"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref OBSERVEREC2
+
+  ANODESystemARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: ANODEEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, ANODE ]
+            - '-Autorecovery-System'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:recover"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref ANODEEC2
+
+  BNODESystemARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: BNODEEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, BNODE ]
+            - '-Autorecovery-System'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:recover"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref BNODEEC2
+
+  CNODESystemARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: CNODEEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, CNODE ]
+            - '-Autorecovery-System'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:recover"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref CNODEEC2
+
+  BASTIONSystemARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: BASTIONEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, BASTION ]
+            - '-Autorecovery-System'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_System
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:recover"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref BASTIONEC2
+
+#------------------------------------------------------------#
+# Auto RecoveryAlarm - Instance_Failed_Check
+#------------------------------------------------------------#
+
+  NOTARYInstanceARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: NOTARYEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, NOTARY ]
+            - '-Autorecovery-Instance'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:reboot"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref NOTARYEC2
+
+
+  OBSERVERInstanceARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: OBSERVEREC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, OBSERVER ]
+            - '-Autorecovery-Instance'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:reboot"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref OBSERVEREC2
+
+
+  ANODEInstanceARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: ANODEEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, ANODE ]
+            - '-Autorecovery-Instance'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:reboot"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref ANODEEC2
+
+
+  BNODEInstanceARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: BNODEEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, BNODE ]
+            - '-Autorecovery-Instance'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:reboot"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref BNODEEC2
+
+
+  CNODEInstanceARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: CNODEEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, CNODE ]
+            - '-Autorecovery-Instance'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:reboot"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref CNODEEC2
+
+
+  BASTIONInstanceARY:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: BASTIONEC2
+    Properties:
+      AlarmName:
+        Fn::Join:
+          - ''
+          - - !FindInMap [ EC2, TagValueName, BASTION ]
+            - '-Autorecovery-Instance'
+      Namespace: AWS/EC2
+      MetricName: StatusCheckFailed_Instance
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Threshold: 1
+      AlarmActions:
+        - !Sub "arn:aws:automate:${AWS::Region}:ec2:reboot"
+      Dimensions:
+        - Name: InstanceId
+          Value: 
+            !Ref BASTIONEC2

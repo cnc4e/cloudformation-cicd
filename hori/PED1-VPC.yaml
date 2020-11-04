@@ -1,0 +1,484 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >
+  Phase:  PED Ph1
+  AWS Resources:  VPC, Subnet, Internet Gateway, DHCP Options, Flow Log
+
+Parameters:
+  ProjectName:
+    Description: ProjectName
+    Type: String
+    Default: PED1
+
+  UseNatGateway:
+    Type: String
+    AllowedValues:
+      - 'Yes'
+      - 'No'
+
+Mappings:
+  Param:
+    IAMPolicyName:
+      IAMPolicyName01:              IMP-FLW
+
+    IAMRoleName:
+      IAMRoleName01:                IMR-FLW
+
+    VPC:
+      VPCName:                      VPC
+
+    SUB:
+      SUBPUB01Name:                 SUB-PUB_1A
+      SUBPUB02Name:                 SUB-PUB_1C
+      SUBPRI01Name:                 SUB-PRI_1A
+
+    DHCPOptions:
+      DHCPOptionsName:              DHC
+
+    IGW:
+      IGWName:                      IGW
+
+    CidrBlock:
+      VPCCidr:                      192.168.0.0/16
+      SUBPUB01Cidr:                 192.168.0.0/24
+      SUBPUB02Cidr:                 192.168.100.0/24
+      SUBPRI01Cidr:                 192.168.1.0/24
+
+    AvailabilityZone:
+      AZ1:                          ap-northeast-1a
+      AZ2:                          ap-northeast-1c
+
+    LogGroup:
+      LogGroup01Name:               CWL-FLW
+
+    NetworkACL:
+      NACPUB01Name:                 NAC-PUB_1A
+      NACPUB02Name:                 NAC-PUB_1C
+      NACPRI01Name:                 NAC-PRI_1A
+
+    RouteTable:
+      RTTPUB01Name:                 RTT-PUB_1A
+      RTTPUB02Name:                 RTT-PUB_1C
+      RTTPRI01Name:                 RTT-PRI_1A
+    
+    FlowLog:
+      VPCFlowLogName:               CWL-FLW
+
+    NGW:
+      NGWName:                      NGW
+      NGWEIPName:                   EIP-NGW
+
+  Output:
+    VPC:
+      VPCId:                        VPC-ID
+
+    SUB:
+      SUBPUB01Id:                   SUB-PUB1A-ID
+      SUBPUB02Id:                   SUB-PUB1C-ID
+      SUBPRI01Id:                   SUB-PRI1A-ID
+
+Conditions:
+  IfUseNatGateway: !Equals [ !Ref UseNatGateway, 'Yes']
+
+Resources:
+#--------------------------------------------------
+# - Policy
+#--------------------------------------------------
+  IAMPolicy01:
+    Type: AWS::IAM::Policy
+    DeletionPolicy: Delete
+    Properties:
+      PolicyName: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, IAMPolicyName, IAMPolicyName01 ] ] ]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+            Resource: '*'
+      Roles:
+        - !Ref 'IAMRole01'
+
+#--------------------------------------------------
+# - Role
+#--------------------------------------------------
+  IAMRole01:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Delete
+    Properties:
+      RoleName: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, IAMRoleName, IAMRoleName01 ] ] ] 
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+            
+#--------------------------------------------------
+# - VPC
+#--------------------------------------------------
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap [ Param, CidrBlock, VPCCidr ]
+      EnableDnsSupport: true
+      EnableDnsHostnames: false
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, VPC, VPCName] ] ]
+
+#--------------------------------------------------
+# - Subnet
+#--------------------------------------------------
+
+  SUBPUB01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !FindInMap [ Param, AvailabilityZone, AZ1 ]
+      CidrBlock: !FindInMap [ Param, CidrBlock, SUBPUB01Cidr ]
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, SUB, SUBPUB01Name ]  ] ]
+
+  SUBPUB02:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !FindInMap [ Param, AvailabilityZone, AZ2 ]
+      CidrBlock: !FindInMap [ Param, CidrBlock, SUBPUB02Cidr ]
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, SUB, SUBPUB02Name ] ] ]
+
+  SUBPRI01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !FindInMap [ Param, AvailabilityZone, AZ1 ]
+      CidrBlock: !FindInMap [ Param, CidrBlock, SUBPRI01Cidr ]
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, SUB, SUBPRI01Name ] ] ]
+
+#--------------------------------------------------
+# - DHCP Options Set
+#--------------------------------------------------
+
+  DHCPOptions:
+    Type: AWS::EC2::DHCPOptions
+    Properties:
+      DomainName: 'ap-northeast-1.compute.internal'
+      DomainNameServers: 
+        - 'AmazonProvidedDNS'
+      NtpServers: 
+        - 169.254.169.123
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, DHCPOptions, DHCPOptionsName ] ] ]
+
+  VPCDHCPOptionsAssociation:
+    Type: AWS::EC2::VPCDHCPOptionsAssociation
+    Properties:
+      DhcpOptionsId: !Ref DHCPOptions
+      VpcId: !Ref VPC
+
+#--------------------------------------------------
+# - Internet Gateway(IGW)
+#--------------------------------------------------
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, IGW, IGWName ] ] ]
+
+  IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref VPC
+
+#--------------------------------------------------
+# - NetworkACL
+#--------------------------------------------------
+
+  NACPUB01:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, NetworkACL, NACPUB01Name ] ] ]
+
+  SubnetNetworkAclAssociationNACPUB01:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId: !Ref SUBPUB01
+      NetworkAclId: !Ref NACPUB01
+
+  NACLRuleAllowAllIngressNACPUB01:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 100
+      NetworkAclId: !Ref NACPUB01
+
+  NACLRuleAllowAllEgressNACPUB01:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      CidrBlock: '0.0.0.0/0'
+      Egress: true
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 100
+      NetworkAclId: !Ref NACPUB01
+
+#------------------------------------------------------------------------------------------
+
+  NACPUB02:
+    Type: AWS::EC2::NetworkAcl
+    Properties: 
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, NetworkACL, NACPUB02Name ] ] ]
+
+  SubnetNetworkAclAssociationNACPUB02:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId: !Ref SUBPUB02
+      NetworkAclId: !Ref NACPUB02
+
+  NACLRuleAllowAllIngressNACPUB02:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 100
+      NetworkAclId: !Ref NACPUB02
+
+  NACLRuleAllowAllEgressNACPUB02:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      CidrBlock: '0.0.0.0/0'
+      Egress: true
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 100
+      NetworkAclId: !Ref NACPUB02
+
+#------------------------------------------------------------------------------------------
+
+  NACPRI01:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, NetworkACL, NACPRI01Name ] ] ]
+
+  SubnetNetworkAclAssociationNACPRI01:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId: !Ref SUBPRI01
+      NetworkAclId: !Ref NACPRI01
+
+  NACLRuleAllowAllIngressNACPRI01:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      CidrBlock: '0.0.0.0/0'
+      Egress: false
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 100
+      NetworkAclId: !Ref NACPRI01
+
+  NACLRuleAllowAllEgressNACPRI01:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      CidrBlock: '0.0.0.0/0'
+      Egress: true
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 100
+      NetworkAclId: !Ref NACPRI01
+
+#--------------------------------------------------
+# - RouteTable
+#--------------------------------------------------
+
+  RTTPUB01:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, RouteTable, RTTPUB01Name ] ] ]
+
+  RouteAssociationRTTPUB01:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RTTPUB01
+      SubnetId: !Ref SUBPUB01
+
+#------------------------------------------------------------------------------------------
+
+  RTTPUB02:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, RouteTable, RTTPUB02Name ] ] ]
+
+  RouteAssociationRTTPUB02:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RTTPUB02
+      SubnetId: !Ref SUBPUB02
+
+#------------------------------------------------------------------------------------------
+
+  RTTPRI01:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, RouteTable, RTTPRI01Name ] ] ]
+
+  RouteAssociationRTTPRI01:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RTTPRI01
+      SubnetId: !Ref SUBPRI01
+
+#--------------------------------------------------
+# - Route
+#--------------------------------------------------
+
+  RouteRTTPUB01n1:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      RouteTableId: !Ref RTTPUB01
+      GatewayId: !Ref IGW
+
+#------------------------------------------------------------------------------------------
+
+  RouteRTTPUB02n1:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      RouteTableId: !Ref RTTPUB02
+      GatewayId: !Ref IGW
+
+#--------------------------------------------------
+# - LogGroup
+#--------------------------------------------------
+
+  FLWLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName:  !Join [ '-', [ '/aws/vpc', !Ref ProjectName, !FindInMap [ Param, LogGroup, LogGroup01Name ] ] ]
+      RetentionInDays: 365
+
+
+#--------------------------------------------------
+# - VPCFlowLogs
+#--------------------------------------------------
+
+  VPCFlowLogs:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt IAMRole01.Arn
+      LogDestination: !GetAtt FLWLogGroup.Arn
+      LogDestinationType: cloud-watch-logs
+      ResourceId: !Ref VPC
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, FlowLog, VPCFlowLogName] ] ]
+
+#------------------------------------------------------------------------------------------
+
+#--------------------------------------------------
+# - Elastic IP(EIP)
+#--------------------------------------------------
+
+  NGWEIP:
+    Type: AWS::EC2::EIP
+    Condition: IfUseNatGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, NGW, NGWEIPName ] ] ]
+
+#--------------------------------------------------
+# - NAT Gateway(NGW)
+#--------------------------------------------------
+
+  NGW:
+    Type: AWS::EC2::NatGateway
+    Condition: IfUseNatGateway
+    Properties:
+      AllocationId: !GetAtt NGWEIP.AllocationId
+      SubnetId: 
+        !Ref  SUBPUB01
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Param, NGW, NGWName ] ] ]
+
+#--------------------------------------------------
+# - Route
+#--------------------------------------------------
+
+  RTTPRI01n1:
+    Type: AWS::EC2::Route
+    Condition: IfUseNatGateway    
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      RouteTableId: 
+        !Ref RTTPRI01
+      NatGatewayId: !Ref NGW
+
+
+Outputs:
+  outputVPC:
+    Value: !Ref VPC
+    Export:
+      Name: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Output, VPC, VPCId ] ] ]
+
+  outputSUBPUB01:
+    Value: !Ref SUBPUB01
+    Export:
+      Name: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Output, SUB, SUBPUB01Id ] ] ]
+
+  outputSUBPUB02:
+    Value: !Ref SUBPUB02
+    Export:
+      Name: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Output, SUB, SUBPUB02Id ] ] ]
+
+  outputSUBPRI01:
+    Value: !Ref SUBPRI01
+    Export:
+      Name: !Join [ '-', [ !Ref ProjectName, !FindInMap [ Output, SUB, SUBPRI01Id ] ] ]
+
+
