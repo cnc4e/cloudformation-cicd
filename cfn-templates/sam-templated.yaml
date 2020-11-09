@@ -1,12 +1,19 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Provision EC2
+Parameters:
+  SubnetCidr: 
+    Type: String
+    Default: 10.0.124.0/24
+  Ec2SgName:
+    Type: String
+    Default: ec2-sg-cf
 Resources:
   PubSub:
     Type: AWS::EC2::Subnet
     Properties:
       AvailabilityZone: ap-northeast-1b
       VpcId: vpc-6c712805
-      CidrBlock: 10.0.124.0/24
+      CidrBlock: !Ref SubnetCidr
       Tags:
         - Key: Name
           Value: pub-sub-a-cf
@@ -37,9 +44,9 @@ Resources:
     Type: AWS::EC2::Instance
     Properties: 
       ImageId: ami-00d101850e971728d
-      InstanceType: t2.micro
+      InstanceType: t2.nano
       NetworkInterfaces: 
-        - AssociatePublicIpAddress: "true"
+        - AssociatePublicIpAddress: true
           DeviceIndex: "0"
           SubnetId: !Ref PubSub
           GroupSet:
@@ -50,7 +57,7 @@ Resources:
   EC2SG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: ec2-sg-cf
+      GroupName: !Ref Ec2SgName
       GroupDescription: Allow SSH and HTTP access only MyIP
       VpcId: vpc-6c712805
       SecurityGroupIngress:

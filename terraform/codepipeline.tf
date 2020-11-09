@@ -41,6 +41,24 @@ resource "aws_codepipeline" "codepipeline" {
       }
     }
   }
+  
+  stage {
+    name = "Test"
+
+    action {
+      name             = "Test"
+      category         = "Test"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      version          = "1"
+      input_artifacts = ["source_output"]
+      output_artifacts = ["build_output"]
+
+      configuration = {
+        ProjectName = "taskcat-test"
+      }
+    }
+  }
 
   stage {
     name = "Deploy"
@@ -128,7 +146,6 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
       "Effect": "Allow",
       "Action": [
         "cloudformation:*",
-        "ec2:*",
         "iam:*"
       ],
       "Resource": "*"
