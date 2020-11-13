@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "EC2 instance with encrypted EBS volume for AWS CloudFormation Guard Testing"
+
+Resources:
+
+ EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: 'ami-00d101850e971728d'
+      AvailabilityZone: 'ap-northeast-1c'
+      KeyName: "narita"
+      InstanceType: 't3.micro'
+      SubnetId: 'subnet-01107ffce54c1793c'
+      Volumes:
+         - 
+          Device: '/dev/sdf'
+          VolumeId: !Ref EBSVolume
+      Tags:
+       - Key: Name
+         Value: cfn-guard-ec2
+
+ EBSVolume:
+   Type: AWS::EC2::Volume
+   Properties:
+     Size: 100
+     AvailabilityZone: 'ap-northeast-1c'
+     Encrypted: true
+     VolumeType: gp2
+     Tags:
+       - Key: Name
+         Value: cfn-guard-ebs
+   DeletionPolicy: Snapshot
+
+Outputs:
+  InstanceID:
+    Description: The Instance ID
+    Value: !Ref EC2Instance
+  Volume:
+    Description: The Volume ID
+    Value: !Ref  EBSVolume
