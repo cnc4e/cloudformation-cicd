@@ -2,10 +2,11 @@
 resource "aws_s3_bucket" "codebuild_bucket" {
   bucket = "cloudformation-cicd-codebuild-bucket"
   acl    = "private"
+  force_destroy = true
 }
 
-resource "aws_codebuild_project" "codebuild" {
-  name          = "taskcat-test"
+resource "aws_codebuild_project" "cfn_lint" {
+  name          = "cfn-lint"
   description   = "taskcat test project"
   build_timeout = "10"
   service_role  = aws_iam_role.codebuild_role.arn
@@ -41,7 +42,65 @@ resource "aws_codebuild_project" "codebuild" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "buildspec.yml"
+    buildspec = "buildspec-cfn-lint.yml"
+  }
+
+  source_version = "master"
+
+  //vpc_config {
+  //  vpc_id = aws_vpc.example.id
+
+  //  subnets = [
+  //    aws_subnet.example1.id,
+  //    aws_subnet.example2.id,
+  //  ]
+
+  //  security_group_ids = [
+  //    aws_security_group.example1.id,
+  //    aws_security_group.example2.id,
+  //  ]
+  //}
+
+}
+
+resource "aws_codebuild_project" "cloudformation_guard" {
+  name          = "cloudformation-guard"
+  description   = "taskcat test project"
+  build_timeout = "10"
+  service_role  = aws_iam_role.codebuild_role.arn
+
+  artifacts {
+    type = "CODEPIPELINE"
+  }
+
+  cache {
+    type     = "S3"
+    location = aws_s3_bucket.codebuild_bucket.bucket
+  }
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/standard:1.0"
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+
+  }
+
+  logs_config {
+    cloudwatch_logs {
+      group_name  = "cloudformation-cicd"
+      stream_name = "taskcat-log"
+    }
+
+    s3_logs {
+      status   = "ENABLED"
+      location = "${aws_s3_bucket.codebuild_bucket.id}/build-log"
+    }
+  }
+
+  source {
+    type      = "CODEPIPELINE"
+    buildspec = "buildspec-cloudformation-guard.yml"
   }
 
   source_version = "master"

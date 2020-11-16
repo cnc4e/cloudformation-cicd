@@ -2,6 +2,7 @@
 resource "aws_s3_bucket" "codepipeline_bucket" {
   bucket = "cloudformation-cicd-bucket"
   acl    = "private"
+  force_destroy = true
 }
 
 # S3へアクセスするためのマネージドキー
@@ -43,19 +44,37 @@ resource "aws_codepipeline" "codepipeline" {
   }
   
   stage {
-    name = "Test"
+    name = "Cfn-lint"
 
     action {
-      name             = "Test"
+      name             = "Cfn-lint"
       category         = "Test"
       owner            = "AWS"
       provider         = "CodeBuild"
       version          = "1"
       input_artifacts = ["source_output"]
-      output_artifacts = ["build_output"]
+      output_artifacts = ["lint_output"]
 
       configuration = {
-        ProjectName = "taskcat-test"
+        ProjectName = "cfn-lint"
+      }
+    }
+  }
+  
+  stage {
+    name = "CloudFormation-guard"
+
+    action {
+      name             = "CloudFormation-guard"
+      category         = "Test"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      version          = "1"
+      input_artifacts = ["source_output"]
+      output_artifacts = ["policy_output"]
+
+      configuration = {
+        ProjectName = "cloudformation-guard"
       }
     }
   }
