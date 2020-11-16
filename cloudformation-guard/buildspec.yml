@@ -11,23 +11,11 @@ phases:
       - apt-get install build-essential -y
       - apt-get install cargo -y
       - apt-get install git -y
-  pre_build:
-    commands:
-      - echo "Setting up the environment for AWS CloudFormation Guard"
-      - echo "More info https://github.com/aws-cloudformation/cloudformation-guard"
-      - echo "Install Rust"
       - curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - wget https://github.com/aws-cloudformation/cloudformation-guard/releases/download/1.0.0/cfn-guard-linux-1.0.0.tar.gz
+      - tar xvf cfn-guard-linux-1.0.0.tar.gz .
   build:
     commands:
-       - echo "Pull GA release from github"
-       - echo "More info https://github.com/aws-cloudformation/cloudformation-guard/releases"
-       - wget https://github.com/aws-cloudformation/cloudformation-guard/releases/download/1.0.0/cfn-guard-linux-1.0.0.tar.gz
-       - echo "Extract cfn-guard"
-       - tar xvf cfn-guard-linux-1.0.0.tar.gz .
-  post_build:
-    commands:
-       - echo "Validate CloudFormation template with cfn-guard tool"
-       - echo "More information https://github.com/aws-cloudformation/cloudformation-guard/blob/master/cfn-guard/README.md"
        - cfn-guard-linux/cfn-guard check --rule_set $CF_ORG_RULESET --template $CF_TEMPLATE --strict-checks
 artifacts:
   files:

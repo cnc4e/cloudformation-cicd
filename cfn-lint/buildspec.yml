@@ -4,7 +4,6 @@ phases:
     runtime-versions:
       python: 3.7
     commands:
-      - echo install phase started on `date`
       - python --version
       - 'curl -O https://bootstrap.pypa.io/get-pip.py'
       - python3 get-pip.py
@@ -12,11 +11,7 @@ phases:
       - pip3 install cfn-lint
   build:
     commands:
-      - echo Build phase started on `date`
       - cfn-lint cfn_template_file_example.yaml --ignore-checks W 
-  post_build:
-    commands:
-      - echo Build completed on `date`
 artifacts:
   files:
     - '**/*'
