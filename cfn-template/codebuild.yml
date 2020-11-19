@@ -5,14 +5,14 @@ Resources:
     DeletionPolicy: Retain
     Properties:
       AccessControl: Private
-    Tags:
+      Tags:
         - Key: Project
           Value: Cfn-CICD
   CODEBUILDforCFNLINT:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: Cfn-lint
-      ServiceRole: !Ref SERVICEROLEforCODEBUILD
+      ServiceRole: !GetAtt SERVICEROLEforCODEBUILD.Arn
       Artifacts:
         Type: CODEPIPELINE
       Source:
@@ -41,7 +41,7 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: Cfn-guard
-      ServiceRole: !Ref SERVICEROLEforCODEBUILD
+      ServiceRole: !GetAtt SERVICEROLEforCODEBUILD.Arn
       Artifacts:
         Type: CODEPIPELINE
       Source:

@@ -1,5 +1,113 @@
 AWSTemplateFormatVersion: 2010-09-09
 Resources:
+  CODECOMMIT:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: CloudFormationTemplate
+      RepositoryDescription: cloudformation templates with cicd
+      Tags:
+        - Key: Project
+          Value: Cfn-CICD
+  S3BUCKETforCODEBUILD:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: Private
+      Tags:
+        - Key: Project
+          Value: Cfn-CICD
+  CODEBUILDforCFNLINT:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: Cfn-lint
+      ServiceRole: !GetAtt SERVICEROLEforCODEBUILD.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec-cfn-lint.yml
+      SourceVersion: master
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: cfn-cicd-log
+          StreamName: cfn-lint-log
+        S3Logs:
+          Status: DISABLED
+      Cache:
+        Type: S3
+        Location: !Ref S3BUCKETforCODEBUILD
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:1.0
+        Type: LINUX_CONTAINER
+        ImagePullCredentialsType: CODEBUILD
+      Tags:
+        - Key: Project
+          Value: Cfn-CICD
+  CODEBUILDforCFNGUARD:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: Cfn-guard
+      ServiceRole: !GetAtt SERVICEROLEforCODEBUILD.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec-cfn-guard.yml
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: cfn-cicd-log
+          StreamName: cfn-guard-log
+        S3Logs:
+          Status: DISABLED
+      Cache:
+        Type: S3
+        Location: !Ref S3BUCKETforCODEBUILD
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:1.0
+        Type: LINUX_CONTAINER
+        ImagePullCredentialsType: CODEBUILD
+      Tags:
+        - Key: Project
+          Value: Cfn-CICD
+  SERVICEROLEforCODEBUILD:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild_policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub arn:aws:s3:::${S3BUCKETforCODEBUILD}/*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - codecommit:*
+                  - codebuild:*
+      Tags:
+        - Key: Project
+          Value: Cfn-CICD
   S3BUCKETforCODEPIPELINE:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -149,4 +257,3 @@ Resources:
       Tags:
         - Key: Project
           Value: Cfn-CICD
-
