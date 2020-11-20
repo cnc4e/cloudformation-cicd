@@ -1,13 +1,9 @@
 AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  BRANCH:
+    Type: String
+    Default: production
 Resources:
-  CODECOMMIT:
-    Type: AWS::CodeCommit::Repository
-    Properties:
-      RepositoryName: CloudFormationTemplate
-      RepositoryDescription: cloudformation templates with cicd
-      Tags:
-        - Key: Project
-          Value: Cfn-CICD
   S3BUCKETforCODEBUILD:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -16,17 +12,19 @@ Resources:
       Tags:
         - Key: Project
           Value: Cfn-CICD
+        - Key: Branch
+          Value: !Ref BRANCH
   CODEBUILDforCFNLINT:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: Cfn-lint
+      Name: !Sub Cfn-lint-${BRANCH}
       ServiceRole: !GetAtt SERVICEROLEforCODEBUILD.Arn
       Artifacts:
         Type: CODEPIPELINE
       Source:
         Type: CODEPIPELINE
         BuildSpec: buildspec-cfn-lint.yml
-      SourceVersion: master
+      SourceVersion: !Ref BRANCH
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
@@ -45,16 +43,19 @@ Resources:
       Tags:
         - Key: Project
           Value: Cfn-CICD
+        - Key: Branch
+          Value: !Ref BRANCH
   CODEBUILDforCFNGUARD:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: Cfn-guard
+      Name: !Sub Cfn-guard-${BRANCH}
       ServiceRole: !GetAtt SERVICEROLEforCODEBUILD.Arn
       Artifacts:
         Type: CODEPIPELINE
       Source:
         Type: CODEPIPELINE
         BuildSpec: buildspec-cfn-guard.yml
+      SourceVersion: !Ref BRANCH
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
@@ -73,6 +74,8 @@ Resources:
       Tags:
         - Key: Project
           Value: Cfn-CICD
+        - Key: Branch
+          Value: !Ref BRANCH
   SERVICEROLEforCODEBUILD:
     Type: AWS::IAM::Role
     Properties:
@@ -108,6 +111,8 @@ Resources:
       Tags:
         - Key: Project
           Value: Cfn-CICD
+        - Key: Branch
+          Value: !Ref BRANCH
   S3BUCKETforCODEPIPELINE:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -116,9 +121,12 @@ Resources:
       Tags:
         - Key: Project
           Value: Cfn-CICD 
+        - Key: Branch
+          Value: !Ref BRANCH
   CODEPIPELINE:
     Type: AWS::CodePipeline::Pipeline 
     Properties: 
+      Name: !Sub Cloudformation-cicd-${BRANCH}
       RoleArn: !GetAtt SERVICEROLEforCODEPIPELINE.Arn
       Stages: 
         - Name: Source 
@@ -133,7 +141,7 @@ Resources:
                 - Name: SourceOutput 
               Configuration: 
                 RepositoryName: CloudFormationTemplate
-                BranchName: master
+                BranchName: !Ref BRANCH
               RunOrder: 1 
         - Name: Cfn-lint
           Actions: 
@@ -182,7 +190,7 @@ Resources:
                 RoleArn: !GetAtt SERVICEROLEforCLOUDFORMATION.Arn
                 Capabilities: CAPABILITY_AUTO_EXPAND,CAPABILITY_IAM
                 OutputFileName: CreateStackOutput.json
-                StackName: CloudFormationCICD
+                StackName: !Sub CloudFormationCICD-${BRANCH}
                 TemplatePath: SourceOutput::cfn-template-file-example.yaml
               RunOrder: 1 
       ArtifactStore: 
@@ -192,6 +200,8 @@ Resources:
       Tags:
         - Key: Project
           Value: Cfn-CICD
+        - Key: Branch
+          Value: !Ref BRANCH
   SERVICEROLEforCODEPIPELINE:
     Type: AWS::IAM::Role
     Properties:
@@ -234,6 +244,8 @@ Resources:
       Tags:
         - Key: Project
           Value: Cfn-CICD
+        - Key: Branch
+          Value: !Ref BRANCH
   SERVICEROLEforCLOUDFORMATION:
     Type: AWS::IAM::Role
     Properties:
@@ -257,3 +269,5 @@ Resources:
       Tags:
         - Key: Project
           Value: Cfn-CICD
+        - Key: Branch
+          Value: !Ref BRANCH
