@@ -3,6 +3,9 @@ Parameters:
   BRANCH:
     Type: String
     Default: master
+  TEMPLATENAME:
+    Type: String
+    Default: cfn-template-file-example.yaml
 Resources:
   CODECOMMIT:
     Type: AWS::CodeCommit::Repository
@@ -199,7 +202,7 @@ Resources:
                 Capabilities: CAPABILITY_AUTO_EXPAND,CAPABILITY_IAM
                 OutputFileName: CreateStackOutput.json
                 StackName: !Sub CloudFormationCICD-${BRANCH}
-                TemplatePath: SourceOutput::cfn-template-file-example.yaml
+                TemplatePath: !Sub SourceOutput::${TEMPLATENAME}
               RunOrder: 1 
       ArtifactStore: 
         Type: S3 
