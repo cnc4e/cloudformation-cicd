@@ -5,7 +5,7 @@ Parameters:
     Default: production
   TEMPLATENAME:
     Type: String
-    Default: cfn-template-file-example.yaml
+    Default: cfn_template_file_example.yaml
 Resources:
   S3BUCKETforCODEBUILD:
     Type: AWS::S3::Bucket
@@ -277,6 +277,7 @@ Resources:
                 Effect: Allow
                 Action:
                   - iam:PassRole
+                  - ec2:*
       Tags:
         - Key: Project
           Value: Cfn-CICD

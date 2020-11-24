@@ -5,7 +5,7 @@ Parameters:
     Default: master
   TEMPLATENAME:
     Type: String
-    Default: cfn-template-file-example.yaml
+    Default: cfn_template_file_example.yaml
 Resources:
   CODECOMMIT:
     Type: AWS::CodeCommit::Repository
@@ -285,6 +285,7 @@ Resources:
                 Effect: Allow
                 Action:
                   - iam:PassRole
+                  - ec2:*
       Tags:
         - Key: Project
           Value: Cfn-CICD
