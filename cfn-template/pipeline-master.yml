@@ -167,7 +167,7 @@ Resources:
                 Version: "1" 
                 Provider: CodeBuild
               Configuration: 
-                ProjectName: cfn-lint
+                ProjectName: !Sub Cfn-lint-${BRANCH}
               RunOrder: 1 
         - Name: Cfn-guard
           Actions: 
@@ -182,7 +182,7 @@ Resources:
                 Version: "1" 
                 Provider: CodeBuild
               Configuration: 
-                ProjectName: cfn-guard
+                ProjectName: !Sub Cfn-guard-${BRANCH}
               RunOrder: 1 
         - Name: Release 
           Actions: 
