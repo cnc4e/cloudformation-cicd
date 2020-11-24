@@ -56,8 +56,13 @@ cd $CLONEDIR
 ```
 
 その後`接続のステップ`（サービス > CodeCommit > リポジトリ > `CloudFormationTemplate`）に書かれた手順を実行し、CodeCommitのリポジトリをクローンしてください。クローンしたディレクトリは空の状態です。  
+後ほど本番環境で使用するため、今クローンしたディレクトリで`production`ブランチを作成しプッシュします。  
+```
+git checkout -b production
+git push origin production
+```
 
-今クローンしたディレクトリに必要資材をコピーします。  
+クローンしたディレクトリに必要資材をコピーします。  
 ```
 cp $CLONEDIR/cloudformation-cicd/cfn-lint/* $CLONEDIR/CloudFormationTemplate/
 cp $CLONEDIR/cloudformation-cicd/cloudformation-guard/* $CLONEDIR/CloudFormationTemplate/
@@ -96,19 +101,12 @@ AWSコンソールで、サービス > CodePipeline > パイプライン > `Clou
 ### production
 masterブランチをproductionブランチにマージすると、`Cloudformation-cicd-production`パイプラインが動作し始めます。つまり、マージ操作をすることで記法チェックやポリシーチェックを行った上で本番環境へのデプロイが行われます。  
 
-まずはCodeCommitにproductionブランチをプッシュします。この際、CloudFormationテンプレートは削除しておきます。（masterブランチからマージされるテンプレートをデプロイさせるため）
-```
-git checkout -b production
-rm $CLONEDIR/CloudFormationTemplate/cfn_template_file_example.yaml
-git add .
-git commit -m "init"
-git push
-# プッシュ時のユーザ名/パスワードは、CodeCommitのリポジトリクローン時のものと同じです
-```
+AWSコンソールで、サービス > CodeCommit > リポジトリ > `CloudFormationTemplate` > プルリクエスト を表示します。`プルリクエストの作成`より、以下の内容でプルリクエストを作成します。  
+- ターゲット：production
+- ソース：master
+- タイトル：テンプレート追加
 
-続いてAWSコンソールで、サービス > CodeCommit > リポジトリ > `CloudFormationTemplate` > プルリクエスト を表示します。`プルリクエストの作成`より、以下の内容でプルリクエストを作成します。  
-
-AWSコンソールで、先ほど作成したプルリクエストをマージします。  
+プルリクエスト作成後の画面右上の`マージ`より、先ほど作成したプルリクエストをマージします。（早送りマージで構いません）  
 
 AWSコンソールで、サービス > CodePipeline > パイプライン > `Cloudformation-cicd-production`パイプライン を表示します。すべての項目をパスし、CloudFormationテンプレートがデプロイされるまで5分～10分程度かかります。最後の`Release`アクションをパスしたら、以下を確認します。  
 - テンプレート記載のリソースがデプロイされていること
