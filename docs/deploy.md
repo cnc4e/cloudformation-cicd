@@ -1,6 +1,5 @@
 # 環境構築
 ## 前提
-適宜追加  
 - `iam:PassRole`ポリシーが適用されたIAMユーザを使用すること
 - `aws`コマンドが使用できること
 
@@ -19,7 +18,7 @@ export CLONEDIR=`pwd`
 git clone https://github.com/cnc4e/cloudformation-cicd.git
 ```
 
-以下図のCI/CDパイプラインを作成します。
+以下図のCI/CDパイプラインを作成します。  
 図  
 クローンしたディレクトリ内のテンプレートを使い、CloudFormationスタックを作成します。  
 CodeCommitのリポジトリのmasterブランチをソースとするパイプラインと、CodeCommitリポジトリのproductionブランチをソースとするパイプラインの2種類が作成されます。  
@@ -34,7 +33,11 @@ aws cloudformation create-stack --stack-name Cloudformation-cicd-production --te
 CI/CDパイプラインが作成されているか確認します。以下の手順はAWSコンソールを使用してください。    
 - サービス > CloudFormation > スタック で`Cloudformation-cicd-master`及び`Cloudformation-cicd-production`スタックのステータスが`CREATE_COMPLETE`になっていることを確認
 - サービス > CodePipeline > パイプライン で`Cloudformation-cicd-master`及び`Cloudformation-cicd-production`パイプラインが作成されていることを確認（この時点ではパイプライン内のSourceアクションは失敗していて構いません）
-- サービス > CodeBuild > ビルドプロジェクト で`Cfn-lint-master`、`Cfn-guard-master`、`Cfn-lint-production`、`Cfn-guard-production`プロジェクトが作成されていることを確認
+- サービス > CodeBuild > ビルドプロジェクト で以下のプロジェクトが作成されていることを確認
+  - `Cfn-lint-master`
+  - `Cfn-guard-master`
+  - `Cfn-lint-production`
+  - `Cfn-guard-production`
 - サービス > CodeCommit > リポジトリ で`CloudFormationTemplate`リポジトリが作成されていることを確認
 
 これでCI/CDパイプラインが作成されました。ただし今のままでは必要なファイルが存在していないため動作しません。次のステップでは必要なファイルをCodeCommitのリポジトリに格納します。  
@@ -85,12 +88,12 @@ CodeCommitのリポジトリに格納されているか確認します。以下�
 - CloudFormation-guardを使用したポリシーチェック
 - チェックに合格したCloudFormationテンプレートをデプロイ
 
-#### master
+### master
 AWSコンソールで、サービス > CodePipeline > パイプライン > `Cloudformation-cicd-master`パイプライン を表示します。すべての項目をパスし、CloudFormationテンプレートがデプロイされるまで5分～10分程度かかります。最後の`Release`アクションをパスしたら、以下を確認します。  
 - テンプレート記載のリソースがデプロイされていること
 - デプロイされたリソースのタグが`env:master`であること
 
-#### production
+### production
 masterブランチをproductionブランチにマージすると、`Cloudformation-cicd-production`パイプラインが動作し始めます。つまり、マージ操作をすることで記法チェックやポリシーチェックを行った上で本番環境へのデプロイが行われます。  
 
 まずはCodeCommitにproductionブランチをプッシュします。この際、CloudFormationテンプレートは削除しておきます。（masterブランチからマージされるテンプレートをデプロイさせるため）
@@ -103,8 +106,7 @@ git push
 # プッシュ時のユーザ名/パスワードは、CodeCommitのリポジトリクローン時のものと同じです
 ```
 
-続いてAWSコンソールで、サービス > CodeCommit > リポジトリ > `CloudFormationTemplate` > プルリクエスト を表示します。`プルリクエストの作成`より、以下の内容でプルリクエストを作成します。
-- 
+続いてAWSコンソールで、サービス > CodeCommit > リポジトリ > `CloudFormationTemplate` > プルリクエスト を表示します。`プルリクエストの作成`より、以下の内容でプルリクエストを作成します。  
 
 AWSコンソールで、先ほど作成したプルリクエストをマージします。  
 
