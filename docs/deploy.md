@@ -19,7 +19,9 @@ git clone https://github.com/cnc4e/cloudformation-cicd.git
 ```
 
 以下図のCI/CDパイプラインを作成します。  
-図  
+
+![](cloudformation-cicd-gouka.drawio.png)  
+
 クローンしたディレクトリ内のテンプレートを使い、CloudFormationスタックを作成します。  
 CodeCommitのリポジトリのmasterブランチをソースとするパイプラインと、CodeCommitリポジトリのproductionブランチをソースとするパイプラインの2種類が作成されます。  
 作成する方法はAWS CLIまたはAWSコンソールどちらでも構いません。以下はコマンドでCloudFormationスタックを作成する場合の手順です。  
