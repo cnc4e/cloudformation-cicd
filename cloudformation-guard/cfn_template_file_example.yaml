@@ -1,40 +1,33 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "EC2 instance with encrypted EBS volume for AWS CloudFormation Guard Testing"
+Parameters:
+  SubnetId:
+    Description: SubnetId
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-01107ffce54c1793c
+  ImageId:
+    Description: Amazon Linux 2 AMI ap-northeast
+    Type: AWS::EC2::Image::Id
+    Default: ami-00d101850e971728d
 
 Resources:
-
- EC2Instance:
+  EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: 'ami-00d101850e971728d'
-      AvailabilityZone: ap-northeast-1c
-      KeyName: "narita"
+      ImageId: !Ref ImageId
       InstanceType: 't3.micro'
-      SubnetId: 'subnet-01107ffce54c1793c'
-      Volumes:
-         - 
-          Device: '/dev/sdf'
-          VolumeId: !Ref EBSVolume
+      SubnetId: !Ref SubnetId
+      BlockDeviceMappings:
+      - DeviceName: /dev/sdf
+        Ebs:
+          VolumeSize: 50
+          VolumeType: gp2
       Tags:
-       - Key: Name
-         Value: cfn-guard-ec2
-
- EBSVolume:
-   Type: AWS::EC2::Volume
-   Properties:
-     Size: 100
-     AvailabilityZone: 'ap-northeast-1c'
-     Encrypted: true
-     VolumeType: gp2
-     Tags:
-       - Key: Name
-         Value: cfn-guard-ebs
-   DeletionPolicy: Snapshot
+      - Key: Name
+        Value: cfn-cicd-ec2
+    DeletionPolicy: Delete
 
 Outputs:
   InstanceID:
     Description: The Instance ID
     Value: !Ref EC2Instance
-  Volume:
-    Description: The Volume ID
-    Value: !Ref  EBSVolume
