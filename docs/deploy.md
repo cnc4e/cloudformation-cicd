@@ -98,7 +98,8 @@ CodeCommitのリポジトリに格納されているか確認します。以下�
   - `buildspec-cfn-guard.yml`
   - `cfn_guard_ruleset_example`
 
-必要資材を格納したため、これでCI/CDパイプラインが動作します。次のステップでは、CloudFormationテンプレートをプッシュするだけで、記法チェックやポリシーチェックが行われCloudFormationテンプレートがデプロイされるかどうか確認します。
+必要資材を格納したため、これでCloudFormationテンプレートをプッシュするだけで、CI/CDパイプラインが動作します。現時点ではCodeCommitのリポジトリにCloudFormationテンプレートが無いため、CI/CDパイプラインは失敗します。  
+次のステップでは、記法チェックやポリシーチェックが行われ、CloudFormationテンプレートがデプロイされるかどうか確認します。
 
 ## 3. パイプライン確認
 今回作成したパイプラインは以下の動作をします。
