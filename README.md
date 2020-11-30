@@ -9,7 +9,7 @@
 本資料で作成可能な構成は以下の図に示す通りです。  
 
 # CI/CDフロー図
-![kosei](./docs/cloudformation-cicd-gouka.drawio.png)
+![kosei](./docs/cloudformation-cicd-flow.drawio.png)
 
 # 使用するテストツール
 - [AWS CloudFormation Linter](https://github.com/aws-cloudformation/cfn-python-lint)
