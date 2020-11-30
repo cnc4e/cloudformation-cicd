@@ -4,7 +4,7 @@ Parameters:
   SubnetId:
     Description: SubnetId
     Type: AWS::EC2::Subnet::Id
-    Default: subnet-01107ffce54c1793c
+    Default: TARGETSUBNETID
   ImageId:
     Description: Amazon Linux 2 AMI ap-northeast
     Type: AWS::EC2::Image::Id

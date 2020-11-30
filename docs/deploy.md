@@ -13,6 +13,7 @@
 # 環境構築
 ## 前提
 - `iam:PassRole`ポリシーが適用されたIAMユーザを使用すること
+- EC2インスタンスを作成可能なサブネットが存在すること
 - AWS CLIが使用できること（AWSコンソールを使用してCloudFormationスタックを作成する場合は不要です）
 
 
@@ -109,9 +110,12 @@ CodeCommitのリポジトリに格納されているか確認します。以下�
 - チェックに合格したCloudFormationテンプレートをデプロイ
 
 ### master
-CloudFormationテンプレートをCodeCommitへプッシュします。  
+EC2インスタンス（t3.micro）を作成するCloudFormationテンプレートをCodeCommitへプッシュします。 
+この際、EC2インスタンスを作成可能なサブネットIDをCloudFormationテンプレートに追加します。   
 ```
 cp $CLONEDIR/cloudformation-cicd/cicd-target-template/* $CLONEDIR/CloudFormationTemplate/
+cd $CLONEDIR/CloudFormationTemplate
+sed -i -e 's:TARGETSUBNETID:{EC2インスタンスを作成可能なサブネットID}:g' cfn_template_file_example.yaml
 git add .
 git commit -m "add template"
 git push
