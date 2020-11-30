@@ -147,3 +147,7 @@ aws cloudformation delete-stack --stack-name Cloudformation-cicd-master
 aws cloudformation delete-stack --stack-name Cloudformation-cicd-production
 ```
 
+ディレクトリも削除します。  
+```
+rm -rf $CLONEDIR/CloudFormationTemplate
+```
