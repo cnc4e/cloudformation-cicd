@@ -29,17 +29,31 @@ git clone https://github.com/cnc4e/cloudformation-cicd.git
 
 ![](cloudformation-cicd-flow.drawio.png)  
 
-クローンしたディレクトリ内のテンプレートを使い、CloudFormationスタックを作成します。  
-CodeCommitのリポジトリのmasterブランチをソースとするパイプラインと、CodeCommitリポジトリのproductionブランチをソースとするパイプラインの2種類が作成されます。  
+クローンしたディレクトリ内のテンプレートを使い、CloudFormationスタックを作成します。以下の3種類のスタックが作成されます。
+- CodeCommit、ロールを作成するスタック
+- CodeCommitのリポジトリのmasterブランチをソースとするパイプラインを作成するスタック
+- CodeCommitリポジトリのproductionブランチをソースとするパイプラインを作成するスタック
+  
 作成する方法はAWS CLIまたはAWSコンソールどちらでも構いません。以下はAWS CLIでCloudFormationスタックを作成する場合の手順です。  
 
 ```
 aws cloudformation create-stack --stack-name cfn-cicd-base --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-base.yml --capabilities CAPABILITY_NAMED_IAM
 
-aws cloudformation create-stack --stack-name cfn-cicd-master --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-master.yml --capabilities CAPABILITY_NAMED_IAM
+aws cloudformation create-stack --stack-name cfn-cicd-master --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-template.yml --parameters ParameterKey=BRANCH,ParameterValue=master
 
-aws cloudformation create-stack --stack-name cfn-cicd-production --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-production.yml --capabilities CAPABILITY_NAMED_IAM
+aws cloudformation create-stack --stack-name cfn-cicd-production --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-template.yml --parameters ParameterKey=BRANCH,ParameterValue=production
 ```
+
+AWSコンソールで作成する場合、[pipeline-base.yml](../pipeline-template/pipeline-base.yml)と[pipeline-template.yml](../pipeline-template/pipeline-template.yml)を使用してください。パイプラインを作成するスタックでは、以下を指定して2種類のパイプラインを作成してください。
+- master
+  - スタック名：cfn-cicd-master
+  - パラメータ
+    - `BRANCH`： `master`
+
+- production
+  - スタック名：cfn-cicd-production
+  - パラメータ
+    - `BRANCH`： `production`
   
 
 CI/CDパイプラインが作成されているか確認します。以下の手順はAWSコンソールを使用してください。    
