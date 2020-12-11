@@ -118,7 +118,7 @@ Resources:
                 RepositoryName: CloudFormationTemplate
                 BranchName: !Ref BRANCH
               RunOrder: 1 
-        - Name: Cfn-lint
+        - Name: Test
           Actions: 
             - Name: Cfn-lint
               InputArtifacts: 
@@ -133,8 +133,6 @@ Resources:
               Configuration: 
                 ProjectName: !Sub Cfn-lint-${BRANCH}
               RunOrder: 1 
-        - Name: Cfn-guard
-          Actions: 
             - Name: Cfn-guard
               InputArtifacts: 
                 - Name: SourceOutput 
