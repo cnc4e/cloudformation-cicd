@@ -13,8 +13,8 @@
 アクションに統合できるAWSサービス、またはパートナーサービスを指します。  
 例えばソースアクションに`CodeCommit`や`GitHub`などを統合することができますし、デプロイアクションに`CodeDeploy`や`CloudFormation`などを統合することができます。統合されたアクションにパラメータを与えるだけで、パイプライン-サービス間の連携を簡単に取ることができます。
 
-# CICDフローについて
-作成するCICDパイプラインは主に以下のような流れを取ります。
+# CI/CDフローについて
+作成するCI/CDパイプラインは主に以下のようなフローで構成されます。
 1. CodeCommitにソースをPush
 2. CodePipelineがキックされる
 3. CodeBuildでソースのテストを実施
@@ -22,15 +22,36 @@
   - Cfn-guardによるポリシーチェック
 4. CloudFormationで環境にデプロイされる
 
-今回は[ブランチ戦略](#ブランチ戦略について)に基づき、`master`と`production`という2つのブランチ・2つの環境を想定したサンプルになっています。CICDパイプラインが実際にどのような流れであるか、図示します。
+今回は[ブランチ戦略](#ブランチ戦略について)に基づき、`master`と`production`という2つのブランチ・2つの環境を想定したサンプルになっています。（`feature`は使用しません）CI/CDパイプラインが実際にどのようなフローであるか、図示します。なお、`production`環境はCodePipelineのトリガがマージであること以外は同じであるため、ここでは`master`環境として解説します。
 
+## 1.CodeCommitにソースをPush
 ![push](img/flow-push.drawio.png)  
+CI/CDパイプラインが作成されている状態でソース一式をCodeCommitの対象ブランチにPushします。  
+サンプルでは以下のソースを扱います。
+- CodeBuildで使用するbuildspec（Cfn-lint用）
+- CodeBuildで使用するbuildspec（Cfn-Guard用）
+- Cfn-guardで使用するポリシー
+- CloudFormationでデプロイするテンプレート
 
+## 2.CodePipelineがキックされる
 ![kick](img/flow-kick.drawio.png)  
+そうするとCodeCommitへのPushをトリガに、CodePipelineがキックされます。  
+CodePipelineの`Source`ステージに設定した`Source`アクションによって、CodeCommitのソースがCodePipelineに読み込まれます。ここで読み込まれたソースはCodePipelineの以降のステージでも扱います。  
+なお、CodeCommitの対象ブランチにマージが行われた場合でもトリガになり得ます。
 
+## 3.CodeBuildでソースのテストを実施
 ![test](img/flow-test.drawio.png)  
+ソースが読み込まれると、CodePipelineの`Test`ステージに設定した2つのアクションが並行して動作し始めます。`Cfn-lint`と`Cfn-guard`の2種類で、これらはCodeBuildをアクションプロバイダとして動作します。  
+`Cfn-lint`ではCloudFormationテンプレートの文法チェックを行い、`Cfn-guard`ではCloudFormationテンプレートに設定した値がポリシーに沿っているかチェックします。  
+それぞれのチェックが成功すると次のステージに進みます。失敗した場合、パイプラインは途中で停止します。  
 
-![deploy](img/flow-deploy.drawio.png  )
+## 4.CloudFormationで環境にデプロイされる
+![deploy](img/flow-deploy.drawio.png)  
+ソースのテストが成功するとCodePipelineの`Release`ステージに移行します。  
+ここではCloudFormationをアクションプロバイダとして、CloudFormationテンプレートを実際にデプロイします。  
+環境はCodeCommitのブランチ名を元にしてAWS上に作成されます。そのため`master`ブランチにPushしたソースからは`master`と称した環境が作成されます。  
+
+以上のフローにより、CloudFormationテンプレートに対するCI/CDが行われます。  
 
 
 # ブランチ戦略について
