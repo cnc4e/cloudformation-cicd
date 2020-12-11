@@ -99,7 +99,7 @@ Resources:
   CODEPIPELINE:
     Type: AWS::CodePipeline::Pipeline 
     Properties: 
-      Name: !Sub Cloudformation-cicd-${BRANCH}
+      Name: !Sub cfn-cicd-${BRANCH}
       RoleArn: 
         Fn::ImportValue:
           !Sub "${BASESTACK}-ROLEARNforCODEPIPELINE"
