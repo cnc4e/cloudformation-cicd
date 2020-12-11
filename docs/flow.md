@@ -1,4 +1,18 @@
 # 目次
+- [目次](#目次)
+- [用語](#用語)
+  - [CodePipeline](#codepipeline)
+    - [ステージ](#ステージ)
+    - [アクション](#アクション)
+    - [アクションプロバイダ](#アクションプロバイダ)
+- [CI/CDフローについて](#cicdフローについて)
+  - [1.CodeCommitにソースをPush](#1codecommitにソースをpush)
+  - [2.CodePipelineがキックされる](#2codepipelineがキックされる)
+  - [3.CodeBuildでソースのテストを実施](#3codebuildでソースのテストを実施)
+  - [4.CloudFormationで環境にデプロイされる](#4cloudformationで環境にデプロイされる)
+- [ブランチ戦略について](#ブランチ戦略について)
+  - [GitLab-flow](#gitlab-flow)
+- [作成されるリソース](#作成されるリソース)
 
 # 用語
 ## CodePipeline
