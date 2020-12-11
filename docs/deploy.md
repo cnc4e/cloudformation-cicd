@@ -34,6 +34,8 @@ CodeCommitのリポジトリのmasterブランチをソースとするパイプ�
 作成する方法はAWS CLIまたはAWSコンソールどちらでも構いません。以下はAWS CLIでCloudFormationスタックを作成する場合の手順です。  
 
 ```
+aws cloudformation create-stack --stack-name Cloudformation-cicd-base --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-base.yml --capabilities CAPABILITY_NAMED_IAM
+
 aws cloudformation create-stack --stack-name Cloudformation-cicd-master --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-master.yml --capabilities CAPABILITY_NAMED_IAM
 
 aws cloudformation create-stack --stack-name Cloudformation-cicd-production --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-production.yml --capabilities CAPABILITY_NAMED_IAM
@@ -149,6 +151,7 @@ aws cloudformation delete-stack --stack-name CloudFormationCICD-production
 # パイプラインのスタックを削除
 aws cloudformation delete-stack --stack-name Cloudformation-cicd-master
 aws cloudformation delete-stack --stack-name Cloudformation-cicd-production
+aws cloudformation delete-stack --stack-name Cloudformation-cicd-base
 ```
 
 ディレクトリも削除します。  
