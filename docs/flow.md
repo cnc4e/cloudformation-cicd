@@ -2,10 +2,10 @@
 - [目次](#目次)
 - [作成されるリソース](#作成されるリソース)
 - [CI/CDフローについて](#cicdフローについて)
-  - [1.CodeCommitにソースをPush](#1codecommitにソースをpush)
-  - [2.CodePipelineがキックされる](#2codepipelineがキックされる)
-  - [3.CodeBuildでソースのテストを実施](#3codebuildでソースのテストを実施)
-  - [4.CloudFormationで環境にデプロイ](#4cloudformationで環境にデプロイ)
+  - [CodeCommitにソースをPush](#codecommitにソースをpush)
+  - [CodePipelineがキックされる](#codepipelineがキックされる)
+  - [CodeBuildでソースのテストを実施](#codebuildでソースのテストを実施)
+  - [CloudFormationで環境にデプロイ](#cloudformationで環境にデプロイ)
 - [ブランチ戦略について](#ブランチ戦略について)
   - [GitLab-flow](#gitlab-flow)
 - [用語](#用語)
@@ -41,16 +41,16 @@
 
 # CI/CDフローについて
 作成するCI/CDパイプラインは主に以下のようなフローで構成されます。
-1. CodeCommitにソースをPush
-2. CodePipelineがキックされる
-3. CodeBuildでソースのテストを実施
+- CodeCommitにソースをPush
+- CodePipelineがキックされる
+- CodeBuildでソースのテストを実施
   - Cfn-lintによる文法チェック
   - Cfn-guardによるポリシーチェック
-4. CloudFormationで環境にデプロイ
+- CloudFormationで環境にデプロイ
 
 今回は[ブランチ戦略](#ブランチ戦略について)に基づき、`master`と`production`という2つのブランチ・2つの環境を想定したサンプルになっています。（`feature`は使用しません）CI/CDパイプラインが実際にどのようなフローであるか、図示します。なお、`production`環境はCodePipelineのトリガがマージであること以外は同じであるため、ここでは`master`環境として解説します。
 
-## 1.CodeCommitにソースをPush
+## CodeCommitにソースをPush
 ![push](img/flow-push.drawio.png)  
 CI/CDパイプラインが作成されている状態でソース一式をCodeCommitの対象ブランチにPushします。  
 サンプルでは以下のソースを扱います。
@@ -59,23 +59,26 @@ CI/CDパイプラインが作成されている状態でソース一式をCodeCo
 - Cfn-guardで使用するポリシー
 - CloudFormationでデプロイするテンプレート
 
-## 2.CodePipelineがキックされる
+## CodePipelineがキックされる
 ![kick](img/flow-kick.drawio.png)  
 そうするとCodeCommitへのPushをトリガに、CodePipelineがキックされます。  
 CodePipelineの`Source`ステージに設定した`Source`アクションによって、CodeCommitのソースがCodePipelineに読み込まれます。ここで読み込まれたソースはCodePipelineの以降のステージでも扱います。  
 なお、CodeCommitの対象ブランチにマージが行われた場合でもトリガになり得ます。
 
-## 3.CodeBuildでソースのテストを実施
+## CodeBuildでソースのテストを実施
 ![test](img/flow-test.drawio.png)  
+**このフローはCI/CDにおけるCI（continuous integration）に相当します。**  
 ソースが読み込まれると、CodePipelineの`Test`ステージに設定した2つのアクションが並行して動作し始めます。`Cfn-lint`と`Cfn-guard`の2種類で、これらはCodeBuildをアクションプロバイダとして動作します。  
 `Cfn-lint`ではCloudFormationテンプレートの文法チェックを行い、`Cfn-guard`ではCloudFormationテンプレートに設定した値がポリシーに沿っているかチェックします。  
 それぞれのチェックが成功すると次のステージに進みます。失敗した場合、パイプラインは途中で停止します。  
 
-## 4.CloudFormationで環境にデプロイ
+## CloudFormationで環境にデプロイ
 ![deploy](img/flow-deploy.drawio.png)  
+**このフローはCI/CDにおけるCD（continuous deployment）に相当します。**  
 ソースのテストが成功するとCodePipelineの`Release`ステージに移行します。  
 ここではCloudFormationをアクションプロバイダとして、CloudFormationテンプレートを実際にデプロイします。  
 環境はCodeCommitのブランチ名を元にしてAWS上に作成されます。そのため`master`ブランチにPushしたソースからは`master`と称した環境が作成されます。  
+なお、今回のリファレンスでは自動でデプロイまで行うパイプラインを紹介しています。しかし、環境によっては自動デプロイの前に管理者による承認を得たい場合もあるかと思います。そのような場合、ソースに対するテストとデプロイの間に管理者によるapprove(承認)を要求するアクションを追加します。[参考](https://docs.aws.amazon.com/ja_jp/codepipeline/latest/userguide/approvals.html)  
 
 以上のフローにより、CloudFormationテンプレートに対するCI/CDが行われます。  
 
