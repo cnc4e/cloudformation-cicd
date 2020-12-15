@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: 2010-09-09
+Resources:
+  CODECOMMIT:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: CloudFormationTemplate
+      RepositoryDescription: cloudformation templates with cicd
+      Tags:
+        - Key: Project
+          Value: Cfn-CICD
+  SERVICEROLEforCODEBUILD:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codebuild_policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - codecommit:*
+                  - codebuild:*
+      Tags:
+        - Key: Project
+          Value: Cfn-CICD
+  SERVICEROLEforCODEPIPELINE:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codepipeline_policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                  - codebuild:StartBuild
+                  - codebuild:StopBuild
+                  - codebuild:BatchGet*
+                  - codebuild:Get*
+                  - codebuild:List*
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:UploadArchive
+                  - codecommit:CancelUploadArchive
+                  - cloudformation:*
+                  - iam:PassRole
+      Tags:
+        - Key: Project
+          Value: Cfn-CICD
+  SERVICEROLEforCLOUDFORMATION:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cloudformation_policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - iam:PassRole
+                  - ec2:*
+      Tags:
+        - Key: Project
+          Value: Cfn-CICD
+Outputs:
+  ROLEARNforCODEBUILD:
+    Value: !GetAtt SERVICEROLEforCODEBUILD.Arn
+    Export: 
+      Name: !Sub ${AWS::StackName}-ROLEARNforCODEBUILD
+  ROLEARNforCODEPIPELINE:
+    Value: !GetAtt SERVICEROLEforCODEPIPELINE.Arn
+    Export: 
+      Name: !Sub ${AWS::StackName}-ROLEARNforCODEPIPELINE
+  ROLEARNforCLOUDFORMATION:
+    Value: !GetAtt SERVICEROLEforCLOUDFORMATION.Arn
+    Export: 
+      Name: !Sub ${AWS::StackName}-ROLEARNforCLOUDFORMATION

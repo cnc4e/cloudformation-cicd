@@ -1,8 +1,11 @@
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
+  BASESTACK:
+    Type: String
+    Default: cfn-cicd-base
   BRANCH:
     Type: String
-    Default: production
+    Default: master
   TEMPLATENAME:
     Type: String
     Default: cfn_template_file_example.yaml
@@ -21,7 +24,9 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub Cfn-lint-${BRANCH}
-      ServiceRole: !GetAtt SERVICEROLEforCODEBUILD.Arn
+      ServiceRole: 
+        Fn::ImportValue:
+          !Sub "${BASESTACK}-ROLEARNforCODEBUILD"
       Artifacts:
         Type: CODEPIPELINE
       Source:
@@ -52,7 +57,9 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Sub Cfn-guard-${BRANCH}
-      ServiceRole: !GetAtt SERVICEROLEforCODEBUILD.Arn
+      ServiceRole: 
+        Fn::ImportValue:
+          !Sub "${BASESTACK}-ROLEARNforCODEBUILD"
       Artifacts:
         Type: CODEPIPELINE
       Source:
@@ -79,51 +86,6 @@ Resources:
           Value: Cfn-CICD
         - Key: Branch
           Value: !Ref BRANCH
-  SERVICEROLEforCODEBUILD:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: /
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: codebuild.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: codebuild_policy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Resource:
-                  - !Sub arn:aws:s3:::${S3BUCKETforCODEBUILD}/*
-                Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:GetObject
-                  - s3:GetObjectVersion
-                  - s3:GetBucketVersioning
-              - Resource:
-                  - !Sub arn:aws:s3:::${S3BUCKETforCODEPIPELINE}/*
-                Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:GetObject
-                  - s3:GetObjectVersion
-                  - s3:GetBucketVersioning
-              - Resource: "*"
-                Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - codecommit:*
-                  - codebuild:*
-      Tags:
-        - Key: Project
-          Value: Cfn-CICD
-        - Key: Branch
-          Value: !Ref BRANCH
   S3BUCKETforCODEPIPELINE:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -137,8 +99,10 @@ Resources:
   CODEPIPELINE:
     Type: AWS::CodePipeline::Pipeline 
     Properties: 
-      Name: !Sub Cloudformation-cicd-${BRANCH}
-      RoleArn: !GetAtt SERVICEROLEforCODEPIPELINE.Arn
+      Name: !Sub cfn-cicd-${BRANCH}
+      RoleArn: 
+        Fn::ImportValue:
+          !Sub "${BASESTACK}-ROLEARNforCODEPIPELINE"
       Stages: 
         - Name: Source 
           Actions: 
@@ -154,7 +118,7 @@ Resources:
                 RepositoryName: CloudFormationTemplate
                 BranchName: !Ref BRANCH
               RunOrder: 1 
-        - Name: Cfn-lint
+        - Name: Test
           Actions: 
             - Name: Cfn-lint
               InputArtifacts: 
@@ -169,8 +133,6 @@ Resources:
               Configuration: 
                 ProjectName: !Sub Cfn-lint-${BRANCH}
               RunOrder: 1 
-        - Name: Cfn-guard
-          Actions: 
             - Name: Cfn-guard
               InputArtifacts: 
                 - Name: SourceOutput 
@@ -198,7 +160,9 @@ Resources:
                 Provider: CloudFormation
               Configuration: 
                 ActionMode: CREATE_UPDATE
-                RoleArn: !GetAtt SERVICEROLEforCLOUDFORMATION.Arn
+                RoleArn: 
+                  Fn::ImportValue:
+                    !Sub "${BASESTACK}-ROLEARNforCLOUDFORMATION"
                 Capabilities: CAPABILITY_AUTO_EXPAND,CAPABILITY_IAM
                 OutputFileName: CreateStackOutput.json
                 StackName: !Sub CloudFormationCICD-${BRANCH}
@@ -208,76 +172,6 @@ Resources:
         Type: S3 
         Location:
           Ref: S3BUCKETforCODEPIPELINE
-      Tags:
-        - Key: Project
-          Value: Cfn-CICD
-        - Key: Branch
-          Value: !Ref BRANCH
-  SERVICEROLEforCODEPIPELINE:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: /
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: codepipeline.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: codepipeline_policy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Resource:
-                  - !Sub arn:aws:s3:::${S3BUCKETforCODEPIPELINE}/*
-                Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:GetObject
-                  - s3:GetObjectVersion
-                  - s3:GetBucketVersioning
-              - Resource: "*"
-                Effect: Allow
-                Action:
-                  - codebuild:StartBuild
-                  - codebuild:StopBuild
-                  - codebuild:BatchGet*
-                  - codebuild:Get*
-                  - codebuild:List*
-                  - codecommit:GetBranch
-                  - codecommit:GetCommit
-                  - codecommit:GetUploadArchiveStatus
-                  - codecommit:UploadArchive
-                  - codecommit:CancelUploadArchive
-                  - cloudformation:*
-                  - iam:PassRole
-      Tags:
-        - Key: Project
-          Value: Cfn-CICD
-        - Key: Branch
-          Value: !Ref BRANCH
-  SERVICEROLEforCLOUDFORMATION:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: /
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: cloudformation.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: cloudformation_policy
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Resource: "*"
-                Effect: Allow
-                Action:
-                  - iam:PassRole
-                  - ec2:*
       Tags:
         - Key: Project
           Value: Cfn-CICD

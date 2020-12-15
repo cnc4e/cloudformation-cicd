@@ -29,20 +29,36 @@ git clone https://github.com/cnc4e/cloudformation-cicd.git
 
 ![](cloudformation-cicd-flow.drawio.png)  
 
-クローンしたディレクトリ内のテンプレートを使い、CloudFormationスタックを作成します。  
-CodeCommitのリポジトリのmasterブランチをソースとするパイプラインと、CodeCommitリポジトリのproductionブランチをソースとするパイプラインの2種類が作成されます。  
+クローンしたディレクトリ内のテンプレートを使い、CloudFormationスタックを作成します。以下の3種類のスタックが作成されます。
+- CodeCommit、ロールを作成するスタック
+- CodeCommitのリポジトリのmasterブランチをソースとするパイプラインを作成するスタック
+- CodeCommitリポジトリのproductionブランチをソースとするパイプラインを作成するスタック
+  
 作成する方法はAWS CLIまたはAWSコンソールどちらでも構いません。以下はAWS CLIでCloudFormationスタックを作成する場合の手順です。  
 
 ```
-aws cloudformation create-stack --stack-name Cloudformation-cicd-master --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-master.yml --capabilities CAPABILITY_NAMED_IAM
+aws cloudformation create-stack --stack-name cfn-cicd-base --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-base.yml --capabilities CAPABILITY_NAMED_IAM
 
-aws cloudformation create-stack --stack-name Cloudformation-cicd-production --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-production.yml --capabilities CAPABILITY_NAMED_IAM
+aws cloudformation create-stack --stack-name cfn-cicd-master --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-template.yml --parameters ParameterKey=BRANCH,ParameterValue=master
+
+aws cloudformation create-stack --stack-name cfn-cicd-production --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-template.yml --parameters ParameterKey=BRANCH,ParameterValue=production
 ```
+
+AWSコンソールで作成する場合、[pipeline-base.yml](../pipeline-template/pipeline-base.yml)と[pipeline-template.yml](../pipeline-template/pipeline-template.yml)を使用してください。パイプラインを作成するスタックでは、以下を指定して2種類のパイプラインを作成してください。
+- master
+  - スタック名：cfn-cicd-master
+  - パラメータ
+    - `BRANCH`： `master`
+
+- production
+  - スタック名：cfn-cicd-production
+  - パラメータ
+    - `BRANCH`： `production`
   
 
 CI/CDパイプラインが作成されているか確認します。以下の手順はAWSコンソールを使用してください。    
-- サービス > CloudFormation > スタック で`Cloudformation-cicd-master`及び`Cloudformation-cicd-production`スタックのステータスが`CREATE_COMPLETE`になっていることを確認
-- サービス > CodePipeline > パイプライン で`Cloudformation-cicd-master`及び`Cloudformation-cicd-production`パイプラインが作成されていることを確認（この時点ではパイプライン内のSourceアクションは失敗していて構いません）
+- サービス > CloudFormation > スタック で`cfn-cicd-master`及び`cfn-cicd-production`スタックのステータスが`CREATE_COMPLETE`になっていることを確認
+- サービス > CodePipeline > パイプライン で`cfn-cicd-master`及び`cfn-cicd-production`パイプラインが作成されていることを確認（この時点ではパイプライン内のSourceアクションは失敗していて構いません）
 - サービス > CodeBuild > ビルドプロジェクト で以下のプロジェクトが作成されていることを確認
   - `Cfn-lint-master`
   - `Cfn-guard-master`
@@ -123,11 +139,11 @@ git push
 ```
 
 CodePipelineがプッシュを検知し、CI/CDパイプラインが動作し始めます。  
-AWSコンソールで、サービス > CodePipeline > パイプライン > `Cloudformation-cicd-master`パイプライン を表示します。すべての項目をパスし、CloudFormationテンプレートがデプロイされるまで5分～10分程度かかります。最後の`Release`アクションをパスしたら、以下を確認します。  
+AWSコンソールで、サービス > CodePipeline > パイプライン > `cfn-cicd-master`パイプライン を表示します。すべての項目をパスし、CloudFormationテンプレートがデプロイされるまで5分～10分程度かかります。最後の`Release`アクションをパスしたら、以下を確認します。  
 - テンプレート記載のリソースがデプロイされていること
 
 ### production
-masterブランチをproductionブランチにマージすると、`Cloudformation-cicd-production`パイプラインが動作し始めます。つまり、マージ操作をすることで記法チェックやポリシーチェックを行った上で別環境へのデプロイが行われます。  
+masterブランチをproductionブランチにマージすると、`cfn-cicd-production`パイプラインが動作し始めます。つまり、マージ操作をすることで記法チェックやポリシーチェックを行った上で別環境へのデプロイが行われます。  
 
 AWSコンソールで、サービス > CodeCommit > リポジトリ > `CloudFormationTemplate` > プルリクエスト を表示します。`プルリクエストの作成`より、以下の内容でプルリクエストを作成します。  
 - ターゲット：production
@@ -136,7 +152,7 @@ AWSコンソールで、サービス > CodeCommit > リポジトリ > `CloudForm
 
 プルリクエスト作成後の画面右上の`マージ`より、先ほど作成したプルリクエストをマージします。（早送りマージで構いません）  
 
-AWSコンソールで、サービス > CodePipeline > パイプライン > `Cloudformation-cicd-production`パイプライン を表示します。すべての項目をパスし、CloudFormationテンプレートがデプロイされるまで5分～10分程度かかります。最後の`Release`アクションをパスしたら、以下を確認します。  
+AWSコンソールで、サービス > CodePipeline > パイプライン > `cfn-cicd-production`パイプライン を表示します。すべての項目をパスし、CloudFormationテンプレートがデプロイされるまで5分～10分程度かかります。最後の`Release`アクションをパスしたら、以下を確認します。  
 - テンプレート記載のリソースがデプロイされていること
 
 ## 4. パイプライン削除
@@ -147,8 +163,9 @@ AWSコンソールで、サービス > CodePipeline > パイプライン > `Clou
 aws cloudformation delete-stack --stack-name CloudFormationCICD-master
 aws cloudformation delete-stack --stack-name CloudFormationCICD-production
 # パイプラインのスタックを削除
-aws cloudformation delete-stack --stack-name Cloudformation-cicd-master
-aws cloudformation delete-stack --stack-name Cloudformation-cicd-production
+aws cloudformation delete-stack --stack-name cfn-cicd-master
+aws cloudformation delete-stack --stack-name cfn-cicd-production
+aws cloudformation delete-stack --stack-name cfn-cicd-base
 ```
 
 ディレクトリも削除します。  
