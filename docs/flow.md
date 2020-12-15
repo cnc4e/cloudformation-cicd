@@ -5,7 +5,7 @@
   - [1.CodeCommitにソースをPush](#1codecommitにソースをpush)
   - [2.CodePipelineがキックされる](#2codepipelineがキックされる)
   - [3.CodeBuildでソースのテストを実施](#3codebuildでソースのテストを実施)
-  - [4.CloudFormationで環境にデプロイされる](#4cloudformationで環境にデプロイされる)
+  - [4.CloudFormationで環境にデプロイ](#4cloudformationで環境にデプロイ)
 - [ブランチ戦略について](#ブランチ戦略について)
   - [GitLab-flow](#gitlab-flow)
 - [用語](#用語)
@@ -46,7 +46,7 @@
 3. CodeBuildでソースのテストを実施
   - Cfn-lintによる文法チェック
   - Cfn-guardによるポリシーチェック
-4. CloudFormationで環境にデプロイされる
+4. CloudFormationで環境にデプロイ
 
 今回は[ブランチ戦略](#ブランチ戦略について)に基づき、`master`と`production`という2つのブランチ・2つの環境を想定したサンプルになっています。（`feature`は使用しません）CI/CDパイプラインが実際にどのようなフローであるか、図示します。なお、`production`環境はCodePipelineのトリガがマージであること以外は同じであるため、ここでは`master`環境として解説します。
 
@@ -71,7 +71,7 @@ CodePipelineの`Source`ステージに設定した`Source`アクションによ�
 `Cfn-lint`ではCloudFormationテンプレートの文法チェックを行い、`Cfn-guard`ではCloudFormationテンプレートに設定した値がポリシーに沿っているかチェックします。  
 それぞれのチェックが成功すると次のステージに進みます。失敗した場合、パイプラインは途中で停止します。  
 
-## 4.CloudFormationで環境にデプロイされる
+## 4.CloudFormationで環境にデプロイ
 ![deploy](img/flow-deploy.drawio.png)  
 ソースのテストが成功するとCodePipelineの`Release`ステージに移行します。  
 ここではCloudFormationをアクションプロバイダとして、CloudFormationテンプレートを実際にデプロイします。  
