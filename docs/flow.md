@@ -87,6 +87,7 @@ CodePipelineの`Source`ステージに設定した`Source`アクションによ�
 今回のリファレンスでは`GitLab-flow`を採用しています。なお、次の参考ページをまとめた内容です。[Introduction to GitLab Flow](https://docs.gitlab.com/ee/topics/gitlab_flow.html)  
 ブランチ戦略は他にも`Git-flow`、`GitHub-flow`がありますが、ここでは割愛します。
 
+![branch](img/branch.drawio.png)  
 ## GitLab-flow
 以下3種類のブランチを使い分ける戦略。通常の開発はmasterブランチをベースに行う。何らかの修正を加えた場合、masterブランチからfeatureブランチを作成し、修正が完了したらmasterにマージする。masterブランチで動作を確認したのち問題なければproductionブランチにマージします。(場合によってはproductionブランチの前にstagingブランチなどを設け、より本番に近い環境でテストしてからproductionブランチにマージしても良いです。)
 
@@ -94,7 +95,8 @@ CodePipelineの`Source`ステージに設定した`Source`アクションによ�
 - production
 - feature
 
-この戦略は環境差異を含むレポジトリの管理に有効な戦略です。
+この戦略は環境差異を含むレポジトリの管理に有効な戦略です。  
+なお、今回のリファレンスではfeatureブランチを割愛しています。より実践的なCI/CDを実現するには、featureブランチでCIを行い、パスしたもののみmasterブランチにマージするように構成してください。
 
   
 # 用語
