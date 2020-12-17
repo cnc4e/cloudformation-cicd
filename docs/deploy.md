@@ -35,6 +35,11 @@ git clone https://github.com/cnc4e/cloudformation-cicd.git
 - CodeCommitのリポジトリのmasterブランチをソースとするパイプラインを作成するスタック
 - CodeCommitリポジトリのproductionブランチをソースとするパイプラインを作成するスタック
   
+AWS CLIでスタックを作成する際、リージョンを変更したい場合は環境変数で指定します。特に指定しなければデフォルトリージョンに作成されます。  
+```
+export AWS_DEFAULT_REGION=<スタック作成先リージョン>
+```
+
 作成する方法はAWS CLIまたはAWSコンソールどちらでも構いません。以下はAWS CLIでCloudFormationスタックを作成する場合の手順です。  
 
 ```
