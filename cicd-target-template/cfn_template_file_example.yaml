@@ -20,7 +20,7 @@ Resources:
       BlockDeviceMappings:
       - DeviceName: /dev/sdf
         Ebs:
-          VolumeSize: 50
+          VolumeSize: TARGETVOLUMESIZE
           VolumeType: gp2
       Tags:
       - Key: Name

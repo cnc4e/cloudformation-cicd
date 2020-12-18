@@ -6,6 +6,7 @@
   - [2. 必要資材を格納](#2-必要資材を格納)
   - [3. パイプライン確認](#3-パイプライン確認)
     - [master](#master)
+      - [cfn-lintエラーの確認と修正](#cfn-lintエラーの確認と修正)
     - [production](#production)
   - [4. パイプライン削除](#4-パイプライン削除)
 
@@ -139,7 +140,25 @@ git push
 ```
 
 CodePipelineがプッシュを検知し、CI/CDパイプラインが動作し始めます。  
-AWSコンソールで、サービス > CodePipeline > パイプライン > `cfn-cicd-master`パイプライン を表示します。すべての項目をパスし、CloudFormationテンプレートがデプロイされるまで5分～10分程度かかります。最後の`Release`アクションをパスしたら、以下を確認します。  
+
+#### cfn-lintエラーの確認と修正
+先ほどプッシュしたテンプレートでは、まだEC2インスタンスのボリュームサイズを指定していません（整数で指定する部分が置換のために`TARGETVOLUMESIZE`となっています）。そのため、cfn-lintのチェックをパスせず、エラーとなります。  
+
+AWSコンソールで、サービス > CodePipeline > パイプライン > `cfn-cicd-master`パイプライン を表示します。  
+2番目の`Test`ステージ及び`cfn-lint`アクションが失敗していることを確認してください。なお`cfn-guard`も失敗します。  
+
+このようにテンプレートが記法や型に則っていない場合、`cfn-lint`アクションでエラーになり、デプロイされません。EC2インスタンスのボリュームサイズを50Giに修正して再度プッシュしてみます。  
+```
+cd $CLONEDIR/CloudFormationTemplate
+sed -i -e 's:TARGETVOLUMESIZE:50:g' cfn_template_file_example.yaml
+git add .
+git commit -m "fix template"
+git push
+# プッシュ時のユーザ名/パスワードは、CodeCommitのリポジトリクローン時のものと同じです
+```
+
+CodePipelineがプッシュを検知し、CI/CDパイプラインが動作し始めます。  
+すべての項目をパスし、CloudFormationテンプレートがデプロイされるまで5分～10分程度かかります。最後の`Release`アクションをパスしたら、以下を確認します。  
 - テンプレート記載のリソースがデプロイされていること
 
 ### production
