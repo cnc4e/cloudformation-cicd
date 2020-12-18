@@ -20,5 +20,6 @@
 
 # ドキュメント
 - [環境構築](./docs/deploy.md)
+- [CI/CDフロー解説](./docs/flow.md)
 
 # その他
