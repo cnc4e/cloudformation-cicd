@@ -8,8 +8,11 @@
 
 本資料で作成可能な構成は以下の図に示す通りです。  
 
-# CI/CDフロー図
-![kosei](./docs/cloudformation-cicd-flow.drawio.png)
+# アーキテクチャ図
+![architecture](./docs/img/architecture.drawio.png)
+
+# フロー図
+![flow](./docs/cloudformation-cicd-flow.drawio.png)
 
 # 使用するテストツール
 - [AWS CloudFormation Linter](https://github.com/aws-cloudformation/cfn-python-lint)

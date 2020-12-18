@@ -12,9 +12,10 @@
 
 # 環境構築
 ## 前提
-- `iam:PassRole`ポリシーが適用されたIAMユーザを使用すること
+- `iam:PassRole`、`AWSCodeCommitPowerUser`ポリシーが適用されたIAMユーザを使用すること
 - EC2インスタンスを作成可能なサブネットが存在すること
-- AWS CLIが使用できること（AWSコンソールを使用してCloudFormationスタックを作成する場合は不要です）
+- クライアントでAWS CLIが使用できること（AWSコンソールを使用してCloudFormationスタックを作成する場合は不要です）
+- クライアントでGitが使用できること
 
 
 ## 1. パイプライン作成
@@ -34,6 +35,11 @@ git clone https://github.com/cnc4e/cloudformation-cicd.git
 - CodeCommitのリポジトリのmasterブランチをソースとするパイプラインを作成するスタック
 - CodeCommitリポジトリのproductionブランチをソースとするパイプラインを作成するスタック
   
+AWS CLIでスタックを作成する際、リージョンを変更したい場合は環境変数で指定します。特に指定しなければデフォルトリージョンに作成されます。  
+```
+export AWS_DEFAULT_REGION=<スタック作成先リージョン>
+```
+
 作成する方法はAWS CLIまたはAWSコンソールどちらでも構いません。以下はAWS CLIでCloudFormationスタックを作成する場合の手順です。  
 
 ```
@@ -86,7 +92,15 @@ CloudFormationGuardで使用するポリシーはテンプレートの値をチ�
 cd $CLONEDIR
 ```
 
-その後`接続のステップ`（サービス > CodeCommit > リポジトリ > `CloudFormationTemplate`）に書かれた手順を実行し、CodeCommitのリポジトリをクローンしてください。クローンしたディレクトリは空の状態です。  
+その後`接続のステップ`（サービス > CodeCommit > リポジトリ > `CloudFormationTemplate`）に書かれた手順を実行し、CodeCommitのリポジトリをクローンしてください。主に以下の手順を実行することとなります。
+- IAMユーザ用の認証情報を作成 [参考](https://docs.aws.amazon.com/ja_jp/codecommit/latest/userguide/setting-up-gc.html)
+- リポジトリをクローン
+  ```
+  git clone https://git-codecommit.ap-northeast-1.amazonaws.com/v1/repos/CloudFormationTemplate
+  ※クローンする際のアドレスは`接続のステップ`ページに表示されたアドレスを使用してください。
+  ```
+
+クローンしたディレクトリは空の状態です。  
 クローンしたディレクトリに必要資材をコピーします。  
 ```
 cp $CLONEDIR/cloudformation-cicd/cfn-lint/* $CLONEDIR/CloudFormationTemplate/
