@@ -1,0 +1,8 @@
+#CFN Guard rules
+#List of multiple references
+let allowed_ec2_instance_types = [t2.micro,t3.nano,t3.micro]
+
+#EC2 Policies
+AWS::EC2::Instance InstanceType IN %allowed_ec2_instance_types
+AWS::EC2::Instance BlockDeviceMappings.*.Ebs.VolumeSize >= 10 |AND| AWS::EC2::Instance BlockDeviceMappings.*.Ebs.VolumeSize <= 50
+AWS::EC2::Instance BlockDeviceMappings.*.Ebs.VolumeType == gp2

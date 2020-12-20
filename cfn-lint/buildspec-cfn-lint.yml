@@ -1,0 +1,17 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+    commands:
+      - python --version
+      - 'curl -O https://bootstrap.pypa.io/get-pip.py'
+      - python3 get-pip.py
+      - pip install --upgrade pip
+      - pip3 install cfn-lint
+  build:
+    commands:
+      - cfn-lint cfn_template_file_example.yaml --ignore-checks W 
+artifacts:
+  files:
+    - '**/*'
