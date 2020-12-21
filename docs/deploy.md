@@ -35,7 +35,7 @@ git clone https://github.com/cnc4e/cloudformation-cicd.git
 クローンしたディレクトリ内のテンプレートを使い、CloudFormationスタックを作成します。以下の3種類のスタックが作成されます。
 - CodeCommit、ロールを作成するスタック
 - CodeCommitのリポジトリのmasterブランチをソースとするパイプラインを作成するスタック
-- CodeCommitリポジトリのproductionブランチをソースとするパイプラインを作成するスタック
+- CodeCommitのリポジトリのproductionブランチをソースとするパイプラインを作成するスタック
   
 AWS CLIでスタックを作成する際、リージョンを変更したい場合は環境変数で指定します。特に指定しなければデフォルトリージョンに作成されます。  
 ```
@@ -44,15 +44,26 @@ export AWS_DEFAULT_REGION=<スタック作成先リージョン>
 
 作成する方法はAWS CLIまたはAWSコンソールどちらでも構いません。以下はAWS CLIでCloudFormationスタックを作成する場合の手順です。  
 
+まずはロール等のリソースを作成する前提スタックから作成します。  
 ```
 aws cloudformation create-stack --stack-name cfn-cicd-base --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-base.yml --capabilities CAPABILITY_NAMED_IAM
+```
 
+AWSコンソールで作成する場合、[pipeline-base.yml](../pipeline-template/pipeline-base.yml)を使用してください。  
+
+リソースが作成されているか確認します。以下の手順はAWSコンソールを使用してください。    
+- サービス > CloudFormation > スタック で`cfn-cicd-base`スタックのステータスが`CREATE_COMPLETE`になっていることを確認
+- サービス > CodeCommit > リポジトリ で`CloudFormationTemplate`リポジトリが作成されていることを確認
+
+
+前提スタックが作成されたことを確認してから、パイプラインを作成するスタックを作成してください。
+```
 aws cloudformation create-stack --stack-name cfn-cicd-master --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-template.yml --parameters ParameterKey=BRANCH,ParameterValue=master
 
 aws cloudformation create-stack --stack-name cfn-cicd-production --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-template.yml --parameters ParameterKey=BRANCH,ParameterValue=production
 ```
 
-AWSコンソールで作成する場合、[pipeline-base.yml](../pipeline-template/pipeline-base.yml)と[pipeline-template.yml](../pipeline-template/pipeline-template.yml)を使用してください。パイプラインを作成するスタックでは、以下を指定して2種類のパイプラインを作成してください。
+AWSコンソールで作成する場合、[pipeline-template.yml](../pipeline-template/pipeline-template.yml)を使用してください。パイプラインを作成するスタックでは、以下を指定して2種類のパイプラインを作成してください。
 - master
   - スタック名：cfn-cicd-master
   - パラメータ
@@ -72,7 +83,6 @@ CI/CDパイプラインが作成されているか確認します。以下の手
   - `Cfn-guard-master`
   - `Cfn-lint-production`
   - `Cfn-guard-production`
-- サービス > CodeCommit > リポジトリ で`CloudFormationTemplate`リポジトリが作成されていることを確認
   
 
 これでCI/CDパイプラインが作成されました。ただし今のままでは必要なファイルが存在していないため動作しません。次のステップでは必要なファイルをCodeCommitのリポジトリに格納します。  
