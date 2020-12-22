@@ -6,9 +6,9 @@ Parameters:
     Type: AWS::EC2::Subnet::Id
     Default: TARGETSUBNETID
   ImageId:
-    Description: Amazon Linux 2 AMI ap-northeast
-    Type: AWS::EC2::Image::Id
-    Default: ami-00d101850e971728d
+    Description: Latest Amazon Linux 2 AMI
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
 
 Resources:
   EC2Instance:
