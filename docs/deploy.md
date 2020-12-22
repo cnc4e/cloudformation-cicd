@@ -173,7 +173,13 @@ CodePipelineがプッシュを検知し、CI/CDパイプラインが動作し始
 先ほどプッシュしたテンプレートでは、まだEC2インスタンスのボリュームサイズを指定していません（整数で指定する部分が置換のために`TARGETVOLUMESIZE`となっています）。そのため、cfn-lintのチェックをパスせず、エラーとなります。  
 
 AWSコンソールで、サービス > CodePipeline > パイプライン > `cfn-cicd-master`パイプライン を表示します。  
-`Test`ステージ及び`cfn-lint`アクションが失敗していることを確認してください。なお`cfn-guard`も失敗します。  
+`Test`ステージ及び`cfn-lint`アクションが失敗していることを確認してください。なお`cfn-guard`も失敗します。ログの確認は、`cfn-lint`アクション内の詳細 > 実行の詳細へのリンク より行うことができます。以下のような表示になっていることを確認してください。  
+```
+[Container] 2020/12/21 07:10:49 Running command cfn-lint cfn_template_file_example.yaml --ignore-checks W
+--
+91 | E3012 Property Resources/EC2Instance/Properties/BlockDeviceMappings/0/Ebs/VolumeSize should be of type Integer
+92 | cfn_template_file_example.yaml:23:11
+```
 
 このようにテンプレートが記法や型に則っていない場合、`cfn-lint`アクションでエラーになり、デプロイされません。EC2インスタンスのボリュームサイズを50Giに修正して再度プッシュしてみます。  
 ```
@@ -208,7 +214,12 @@ CodePipelineがマージを検知し、CI/CDパイプラインが動作し始め
 先ほどマージしたテンプレートではEC2インスタンスのボリュームサイズを50Giに設定しています。そのためproductionブランチのポリシーに反してしまい、エラーになります。  
 
 AWSコンソールで、サービス > CodePipeline > パイプライン > `cfn-cicd-production`パイプライン を表示します。  
-`Test`ステージ及び`cfn-guard`アクションが失敗していることを確認してください。  
+`Test`ステージ及び`cfn-guard`アクションが失敗していることを確認してください。ログの確認は、`cfn-guard`アクション内の詳細 > 実行の詳細へのリンク より行うことができます。以下のような表示になっていることを確認してください。  
+```
+[EC2Instance] failed because [BlockDeviceMappings.0.Ebs.VolumeSize] is [50] and the permitted value is [<= 30]
+--
+383 | Number of failures: 1
+```
 
 productionブランチのポリシーを確認します。  
 ```
