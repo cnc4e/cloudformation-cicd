@@ -12,7 +12,7 @@
 ![architecture](./docs/img/architecture.drawio.png)
 
 # フロー図
-![flow](./docs/cloudformation-cicd-flow.drawio.png)
+![flow](./docs/img/cloudformation-cicd-flow.drawio.png)
 
 # 使用するテストツール
 - [AWS CloudFormation Linter](https://github.com/aws-cloudformation/cfn-python-lint)

@@ -35,7 +35,7 @@ git clone https://github.com/cnc4e/cloudformation-cicd.git
 クローンしたディレクトリ内のテンプレートを使い、CloudFormationスタックを作成します。以下の3種類のスタックが作成されます。
 - CodeCommit、ロールを作成するスタック
 - CodeCommitのリポジトリのmasterブランチをソースとするパイプラインを作成するスタック
-- CodeCommitリポジトリのproductionブランチをソースとするパイプラインを作成するスタック
+- CodeCommitのリポジトリのproductionブランチをソースとするパイプラインを作成するスタック
   
 AWS CLIでスタックを作成する際、リージョンを変更したい場合は環境変数で指定します。特に指定しなければデフォルトリージョンに作成されます。  
 ```
@@ -44,15 +44,26 @@ export AWS_DEFAULT_REGION=<スタック作成先リージョン>
 
 作成する方法はAWS CLIまたはAWSコンソールどちらでも構いません。以下はAWS CLIでCloudFormationスタックを作成する場合の手順です。  
 
+まずはロール等のリソースを作成する前提スタックから作成します。  
 ```
 aws cloudformation create-stack --stack-name cfn-cicd-base --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-base.yml --capabilities CAPABILITY_NAMED_IAM
+```
 
+AWSコンソールで作成する場合、[pipeline-base.yml](../pipeline-template/pipeline-base.yml)を使用してください。  
+
+リソースが作成されているか確認します。以下の手順はAWSコンソールを使用してください。    
+- サービス > CloudFormation > スタック で`cfn-cicd-base`スタックのステータスが`CREATE_COMPLETE`になっていることを確認
+- サービス > CodeCommit > リポジトリ で`CloudFormationTemplate`リポジトリが作成されていることを確認
+
+
+前提スタックが作成されたことを確認してから、パイプラインを作成するスタックを作成してください。
+```
 aws cloudformation create-stack --stack-name cfn-cicd-master --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-template.yml --parameters ParameterKey=BRANCH,ParameterValue=master
 
 aws cloudformation create-stack --stack-name cfn-cicd-production --template-body file://$CLONEDIR/cloudformation-cicd/pipeline-template/pipeline-template.yml --parameters ParameterKey=BRANCH,ParameterValue=production
 ```
 
-AWSコンソールで作成する場合、[pipeline-base.yml](../pipeline-template/pipeline-base.yml)と[pipeline-template.yml](../pipeline-template/pipeline-template.yml)を使用してください。パイプラインを作成するスタックでは、以下を指定して2種類のパイプラインを作成してください。
+AWSコンソールで作成する場合、[pipeline-template.yml](../pipeline-template/pipeline-template.yml)を使用してください。パイプラインを作成するスタックでは、以下を指定して2種類のパイプラインを作成してください。
 - master
   - スタック名：cfn-cicd-master
   - パラメータ
@@ -72,7 +83,6 @@ CI/CDパイプラインが作成されているか確認します。以下の手
   - `Cfn-guard-master`
   - `Cfn-lint-production`
   - `Cfn-guard-production`
-- サービス > CodeCommit > リポジトリ で`CloudFormationTemplate`リポジトリが作成されていることを確認
   
 
 これでCI/CDパイプラインが作成されました。ただし今のままでは必要なファイルが存在していないため動作しません。次のステップでは必要なファイルをCodeCommitのリポジトリに格納します。  
@@ -163,7 +173,13 @@ CodePipelineがプッシュを検知し、CI/CDパイプラインが動作し始
 先ほどプッシュしたテンプレートでは、まだEC2インスタンスのボリュームサイズを指定していません（整数で指定する部分が置換のために`TARGETVOLUMESIZE`となっています）。そのため、cfn-lintのチェックをパスせず、エラーとなります。  
 
 AWSコンソールで、サービス > CodePipeline > パイプライン > `cfn-cicd-master`パイプライン を表示します。  
-`Test`ステージ及び`cfn-lint`アクションが失敗していることを確認してください。なお`cfn-guard`も失敗します。  
+`Test`ステージ及び`cfn-lint`アクションが失敗していることを確認してください。なお`cfn-guard`も失敗します。ログの確認は、`cfn-lint`アクション内の詳細 > 実行の詳細へのリンク より行うことができます。以下のようなログが含まれていることを確認してください。  
+```
+[Container] 2020/12/21 07:10:49 Running command cfn-lint cfn_template_file_example.yaml --ignore-checks W
+--
+91 | E3012 Property Resources/EC2Instance/Properties/BlockDeviceMappings/0/Ebs/VolumeSize should be of type Integer
+92 | cfn_template_file_example.yaml:23:11
+```
 
 このようにテンプレートが記法や型に則っていない場合、`cfn-lint`アクションでエラーになり、デプロイされません。EC2インスタンスのボリュームサイズを50Giに修正して再度プッシュしてみます。  
 ```
@@ -198,7 +214,12 @@ CodePipelineがマージを検知し、CI/CDパイプラインが動作し始め
 先ほどマージしたテンプレートではEC2インスタンスのボリュームサイズを50Giに設定しています。そのためproductionブランチのポリシーに反してしまい、エラーになります。  
 
 AWSコンソールで、サービス > CodePipeline > パイプライン > `cfn-cicd-production`パイプライン を表示します。  
-`Test`ステージ及び`cfn-guard`アクションが失敗していることを確認してください。  
+`Test`ステージ及び`cfn-guard`アクションが失敗していることを確認してください。ログの確認は、`cfn-guard`アクション内の詳細 > 実行の詳細へのリンク より行うことができます。以下のようなログが含まれていることを確認してください。  
+```
+[EC2Instance] failed because [BlockDeviceMappings.0.Ebs.VolumeSize] is [50] and the permitted value is [<= 30]
+--
+383 | Number of failures: 1
+```
 
 productionブランチのポリシーを確認します。  
 ```
